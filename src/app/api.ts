@@ -2,8 +2,6 @@ import { createClient, type SupabaseClient, type RealtimeChannel } from "@supaba
 import { answerTexts, normalizeBody, normalizeName, validatePlayerId, type LeaderboardEntry, type ManuellaContent, type QuizResult, type WallConnectionStatus, type WallMessage } from "./contracts";
 export type { LeaderboardEntry, ManuellaContent, QuizResult, WallConnectionStatus, WallMessage } from "./contracts";
 
-export const isDemo = import.meta.env.VITE_DATA_MODE !== "supabase";
-const demo = () => import("./demo").then((module) => module.demoApi);
 let client: SupabaseClient | undefined;
 
 function getClient() {
@@ -38,50 +36,42 @@ async function rpcList<T>(name: string): Promise<T[]> {
 const result = (value: { score: number; best: number }): QuizResult => ({ scorePercent: value.score, bestScorePercent: value.best });
 
 export async function submitQuiz(playerId: string, firstName: string, answers: Record<string, number>): Promise<QuizResult> {
-  if (import.meta.env.VITE_DATA_MODE !== "supabase") return (await demo()).submitQuiz(playerId, firstName, answers);
   validatePlayerId(playerId);
   return result(await rpc("submit_quiz", { p_player_id: playerId, p_first_name: normalizeName(firstName), p_answers: answerTexts(answers) }));
 }
 
 export async function getMyBest(playerId: string) {
-  if (import.meta.env.VITE_DATA_MODE !== "supabase") return (await demo()).getMyBest(playerId);
   validatePlayerId(playerId);
   const value = await rpc<{ first_name: string; best_score: number } | null>("get_my_best", { p_player_id: playerId });
   return value ? { firstName: value.first_name, bestScorePercent: value.best_score } : null;
 }
 
 export async function getLeaderboard(): Promise<LeaderboardEntry[]> {
-  if (import.meta.env.VITE_DATA_MODE !== "supabase") return (await demo()).getLeaderboard();
   const values = await rpcList<{ first_name: string; best_score: number; updated_at: string }>("get_leaderboard");
   return values.map((value) => ({ firstName: value.first_name, bestScorePercent: value.best_score, updatedAt: value.updated_at }));
 }
 
 export async function getMessages(): Promise<WallMessage[]> {
-  if (import.meta.env.VITE_DATA_MODE !== "supabase") return (await demo()).getMessages();
   const values = await rpcList<{ first_name: string; body: string; created_at: string }>("get_messages");
   return values.map((value) => ({ firstName: value.first_name, body: value.body, createdAt: value.created_at }));
 }
 
 export async function postMessage(playerId: string, firstName: string, body: string) {
-  if (import.meta.env.VITE_DATA_MODE !== "supabase") return (await demo()).postMessage(playerId, firstName, body);
   validatePlayerId(playerId);
   await rpc("post_message", { p_player_id: playerId, p_first_name: normalizeName(firstName), p_body: normalizeBody(body) });
   return { ok: true as const };
 }
 
 export async function getManuellaContent(code: string): Promise<ManuellaContent | null> {
-  if (import.meta.env.VITE_DATA_MODE !== "supabase") return (await demo()).getManuellaContent(code);
   if (!/^[A-Za-z0-9_-]{43,128}$/.test(code)) return null;
   return rpc("get_manuella_content", { p_code: code });
 }
 
 export async function submitManuellaQuiz(code: string, answers: Record<string, number>): Promise<QuizResult> {
-  if (import.meta.env.VITE_DATA_MODE !== "supabase") return (await demo()).submitManuellaQuiz(code, answers);
   return result(await rpc("submit_manuella_quiz", { p_code: code, p_answers: answerTexts(answers) }));
 }
 
 export async function postManuellaMessage(code: string, body: string) {
-  if (import.meta.env.VITE_DATA_MODE !== "supabase") return (await demo()).postManuellaMessage(code, body);
   await rpc("post_manuella_message", { p_code: code, p_body: normalizeBody(body) });
   return { ok: true as const };
 }
@@ -89,7 +79,6 @@ export async function postManuellaMessage(code: string, body: string) {
 /** Realtime contains only invalidations. Private IDs and table rows never cross the channel. */
 export function subscribeToWall(callback: () => void, onStatus?: (status: WallConnectionStatus) => void): () => void {
   let disposed = false;
-  let stopDemo: (() => void) | undefined;
   let channel: RealtimeChannel | undefined;
   let polling: ReturnType<typeof setInterval> | undefined;
   let debounce: ReturnType<typeof setTimeout> | undefined;
@@ -107,12 +96,7 @@ export function subscribeToWall(callback: () => void, onStatus?: (status: WallCo
   const online = () => { invalidate(); if (polling) status("polling"); };
   const offline = () => startPolling("offline");
 
-  if (import.meta.env.VITE_DATA_MODE !== "supabase") {
-    status("demo");
-    void demo().then((adapter) => {
-      if (!disposed) { stopDemo = adapter.subscribeToWall(invalidate); invalidate(); }
-    });
-  } else {
+  {
     startPolling("connecting");
     try {
       channel = getClient().channel("birthday-wall").on("broadcast", { event: "changed" }, invalidate)
@@ -128,7 +112,6 @@ export function subscribeToWall(callback: () => void, onStatus?: (status: WallCo
   window.addEventListener("offline", offline);
   return () => {
     disposed = true;
-    stopDemo?.();
     clearPolling();
     if (debounce) clearTimeout(debounce);
     if (channel && client) void client.removeChannel(channel);

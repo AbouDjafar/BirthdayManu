@@ -1,7 +1,7 @@
 [
-  { "id": "q1", "text": "Quelle est sa couleur préférée ?", "avatar": 3, "options": ["Rose bonbon", "Bleu marine", "Violet", "Jaune soleil"] },
-  { "id": "q2", "text": "Quel est son deuxième prénom ?", "avatar": 2, "options": ["Grâce", "Marie", "Solange", "Elle n'en a pas"] },
-  { "id": "q3", "text": "Quel est son plat préféré ?", "avatar": 5, "options": ["Ndolé", "Poulet DG", "Pizza", "Sushis"] },
-  { "id": "q4", "text": "Le matin, sans quoi elle ne peut pas commencer sa journée ?", "avatar": 1, "options": ["Un café", "Sa playlist", "Dix minutes de plus au lit"] },
-  { "id": "q5", "text": "Si elle partait demain en vacances, ce serait…", "avatar": 4, "options": ["Sur une plage", "À Paris", "Au ski", "Dans son canapé"] }
+  { "id": "q1", "text": "Quelle est ma couleur préférée ?", "avatar": "cogite", "options": ["Bleu", "Rouge", "Rose", "Violet"] },
+  { "id": "q2", "text": "Quel est mon deuxième prénom ?", "avatar": "rememore", "options": ["Ange", "Marie", "Grâce", "Solange"] },
+  { "id": "q3", "text": "Quel est mon plat préféré ?", "avatar": "affamee", "options": ["Le ndolé", "Le poulet DG", "La pizza", "Tout ce qui est bon"] },
+  { "id": "q4", "text": "Quand j'étais petite, comment est-ce que j'appelais le mets de mpwem ?", "avatar": "pensive", "options": ["Les petits cailloux", "Les petits caca", "Les petites graines", "Le plat des grands"] },
+  { "id": "q5", "text": "Quel est mon week-end idéal ?", "avatar": "somnole", "options": ["Un voyage improvisé", "Une soirée en ville", "À la maison à regarder Netflix", "Une randonnée en pleine nature"] }
 ]

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { errorMessage, getManuellaContent } from "./api";
 import { go, useApp } from "./App";
-import { Avatar, DemoNotice, Modal, confetti } from "./ui";
+import { Avatar, SignatureFooter, Modal, confetti } from "./ui";
 
 export function ManuellaScreen({ code }: { code: string }) {
   const { activateManuella, leaveManuella } = useApp();
@@ -32,16 +32,15 @@ export function ManuellaScreen({ code }: { code: string }) {
         ))}
       </div>
       <div className="relative mx-auto flex min-h-dvh max-w-md flex-col items-center justify-center gap-6 px-6 py-10 text-center">
-        <DemoNotice />
         {error ? <div className="space-y-4"><p role="alert">{error}</p><button className="btn btn-gold" onClick={() => setAttempt((n) => n + 1)}>Réessayer</button></div> : !content ? (
-          <p className="font-hand text-3xl" role="status">Chut… c'est privé ✨</p>
+          <p className="font-hand text-3xl" role="status">Chut… c'est privé</p>
         ) : (
           <>
-            <Avatar n={4} size={170} className="animate-float" alt="Manuella, le cœur qui bat" />
+            <Avatar n="private" size={170} className="animate-float" alt="Manuella, le cœur qui bat" />
             <p className="font-hand text-3xl text-gold">Joyeux anniversaire</p>
             <h1 className="text-5xl font-black italic">Manuella</h1>
             {!done ? (
-              <button className="btn btn-gold text-lg" onClick={() => { setOpened(true); stopConfetti.current?.(); stopConfetti.current = confetti(60); }}>Ouvrir ma lettre 💌</button>
+              <button className="btn btn-gold text-lg" onClick={() => { setOpened(true); stopConfetti.current?.(); stopConfetti.current = confetti(60); }}>Ouvrir ma lettre</button>
             ) : (
               <div className="grid w-full gap-3">
                 <button className="btn btn-primary text-lg" onClick={() => go("/quiz")}>Jouer au quiz</button>
@@ -50,6 +49,7 @@ export function ManuellaScreen({ code }: { code: string }) {
             )}
           </>
         )}
+        <SignatureFooter tone="night" />
       </div>
       {opened && content && (
         <Modal label="Lettre pour Manuella" tone="night" onClose={() => { setOpened(false); setDone(true); }}>

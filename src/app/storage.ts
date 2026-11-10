@@ -55,11 +55,23 @@ export function saveManuellaCode(code: string | null) {
 }
 
 export const asset = (p: string) => `${import.meta.env.BASE_URL ?? "/"}${p.replace(/^\//, "")}`;
-export const avatar = (n: number) => asset(`assets/avatars/avatar-${n}.webp`);
+const portraitRoles: Record<string, string> = {
+  welcome: "bisous", thinking: "cogite", suspicious: "suspicieuse", hungry: "affamee",
+  memory: "rememore", cozy: "somnole", private: "emue", note: "bisous", wall: "combattive",
+  "score-0": "triste", "score-20": "combattive", "score-40": "akah",
+  "score-60": "etonnee", "score-80": "bisous", "score-100": "emue",
+};
+const legacyPortraits = ["suspicieuse", "bisous", "cogite", "emue", "combattive", "somnole"];
+export const avatar = (n: number | string) => {
+  const portrait = typeof n === "number" ? legacyPortraits[n - 1] ?? "bisous" : portraitRoles[n] ?? n;
+  return asset(`assets/portraits/${portrait}.webp`);
+};
 
 export function scoreTier(s: number) {
-  if (s >= 90) return { title: "Meilleure amie officielle 👑", text: "Certifié, tamponné, encadré. Tu la connais par cœur.", avatar: 4, confetti: 220 };
-  if (s >= 70) return { title: "Trop fière de toi !", text: "Tu fais clairement partie du cercle très fermé.", avatar: 5, confetti: 120 };
-  if (s >= 40) return { title: "Pas mal du tout !", text: "Encore quelques soirées pyjama et tu y es.", avatar: 3, confetti: 40 };
-  return { title: "Euh… tu es sûre ?", text: "Manuella fait les gros yeux. Un petit café ensemble s'impose !", avatar: 1, confetti: 0 };
+  const score = Number.isFinite(s) ? Math.max(0, Math.min(100, s)) : 0;
+  const portrait = `score-${Math.round(score / 20) * 20}`;
+  if (score >= 90) return { title: "Meilleure amie officielle", text: "Certifié, tamponné, encadré. Tu me connais par cœur.", avatar: portrait, confetti: 220 };
+  if (score >= 70) return { title: "Trop fière de toi !", text: "Tu fais clairement partie de mon cercle très fermé.", avatar: portrait, confetti: 120 };
+  if (score >= 40) return { title: "Pas mal du tout !", text: "Encore quelques soirées ensemble et tu me connaîtras par cœur.", avatar: portrait, confetti: 40 };
+  return { title: "Euh… tu es sûre ?", text: "Je fais les gros yeux. Un petit café ensemble s'impose !", avatar: portrait, confetti: 0 };
 }

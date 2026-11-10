@@ -9,7 +9,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { failed: boolean
   override render() {
     if (this.state.failed) return (
       <main className="mx-auto flex min-h-dvh max-w-md flex-col items-center justify-center gap-5 px-6 text-center">
-        <h1 className="text-3xl font-bold">Petit contretemps…</h1>
+        <h1 className="text-3xl font-bold">Petit contretemps</h1>
         <p>La page a besoin d’un nouveau départ. Tes données enregistrées sont conservées.</p>
         <button className="btn btn-primary" onClick={() => window.location.reload()}>Recharger</button>
       </main>

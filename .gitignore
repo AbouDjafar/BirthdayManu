@@ -17,6 +17,7 @@ node_modules
 .playwright/
 coverage/
 .cache/
+assets-originaux/
 dist
 dist-ssr
 .output

@@ -4,7 +4,7 @@ import { errorMessage, getManuellaContent } from "./api";
 import { HomeScreen, QuizScreen, ResultScreen, SurpriseScreen, NoteScreen } from "./screens";
 import { WallScreen } from "./wall";
 import { ManuellaScreen } from "./manuella";
-import { DemoNotice, Sparkles } from "./ui";
+import { SignatureFooter, Sparkles } from "./ui";
 
 const ROUTES = ["/", "/quiz", "/resultat", "/surprise", "/mot", "/mur"];
 export function go(path: string) { window.location.hash = `#${path}`; }
@@ -93,7 +93,8 @@ export function App() {
     <AppCtx.Provider value={ctx}>
       <Sparkles />
       <main className="relative mx-auto flex min-h-dvh w-full max-w-2xl flex-col px-5 pb-10 pt-6">
-        <DemoNotice />{screen}
+        {screen}
+        <SignatureFooter />
       </main>
     </AppCtx.Provider>
   );

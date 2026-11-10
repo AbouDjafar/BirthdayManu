@@ -1,19 +1,18 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { avatar } from "./storage";
-import { isDemo } from "./api";
 
-export function DemoNotice() {
-  if (!isDemo) return null;
-  return <aside className="mb-4 rounded-2xl border-2 border-ink bg-gold px-4 py-3 text-center text-sm font-bold text-ink">
-    Mode démo · données fictives sur cet appareil.
-    {" "}<a href="#/m-demo" className="underline">Tester l’accès Manuella</a>
-  </aside>;
+export const SIGNATURE = "L'empereur Shah Jahan a construit le Taj-Mahal en plus de 22 ans pour sa bien aimée mais le Vizir a conçu cette oeuvre en moins de 22 jours pour sa dulcinée.";
+
+export function SignatureFooter({ tone = "light" }: { tone?: "light" | "night" }) {
+  return <footer className={`mx-auto mt-8 w-full max-w-lg border-t px-1 pt-5 text-center font-display text-xs italic leading-relaxed ${tone === "night" ? "border-gold/20 text-gold/75" : "border-border text-muted-foreground"}`}>
+    <p>{SIGNATURE}</p>
+  </footer>;
 }
 
 /** Accessible modal: bottom sheet on mobile, centered card on desktop. Esc closes, focus trapped. */
 export function Modal({
-  children, onClose, label, tone = "light",
-}: { children: ReactNode; onClose?: () => void; label: string; tone?: "light" | "night" }) {
+  children, onClose, label, tone = "light", showSignature = true,
+}: { children: ReactNode; onClose?: () => void; label: string; tone?: "light" | "night"; showSignature?: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
@@ -43,20 +42,20 @@ export function Modal({
       <div className="absolute inset-0 animate-fade bg-ink/40 backdrop-blur-md" onClick={onClose} aria-hidden />
       <div
         ref={ref} role="dialog" aria-modal="true" aria-label={label} tabIndex={-1}
-        className={`relative max-h-[92dvh] w-full animate-sheet overflow-y-auto rounded-t-[2rem] border-[2.5px] border-ink p-6 pb-8 shadow-soft sm:max-w-md sm:rounded-[2rem] ${tone === "night" ? "bg-night text-ink-foreground" : "bg-card"}`}
+        className={`modal-scroll relative max-h-[92dvh] w-full animate-sheet overflow-y-auto rounded-t-[2rem] border-[2.5px] border-ink p-6 pb-8 shadow-soft sm:max-w-md sm:rounded-[2rem] ${tone === "night" ? "bg-night text-ink-foreground" : "bg-card"}`}
       >
         <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-border sm:hidden" aria-hidden />
-        <DemoNotice />
         {onClose && (
           <button onClick={onClose} aria-label="Fermer" className="absolute right-4 top-4 grid h-11 w-11 place-items-center rounded-full text-2xl leading-none">×</button>
         )}
         {children}
+        {showSignature && <SignatureFooter tone={tone} />}
       </div>
     </div>
   );
 }
 
-export function Avatar({ n, size = 120, className = "", alt = "Manuella" }: { n: number; size?: number; className?: string; alt?: string }) {
+export function Avatar({ n, size = 120, className = "", alt = "Manuella" }: { n: number | string; size?: number; className?: string; alt?: string }) {
   return (
     <img
       src={avatar(n)} alt={alt} width={size} height={size} loading="lazy" decoding="async"

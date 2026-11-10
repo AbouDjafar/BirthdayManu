@@ -1,18 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { errorMessage, getLeaderboard, getMessages, isDemo, subscribeToWall, type LeaderboardEntry, type WallMessage } from "./api";
+import { errorMessage, getLeaderboard, getMessages, subscribeToWall, type LeaderboardEntry, type WallMessage } from "./api";
 import { go } from "./App";
 import { Avatar, Modal } from "./ui";
 
-const medal = ["🥇", "🥈", "🥉"];
 const tilt = ["-rotate-1", "rotate-1", "-rotate-2", "rotate-2"];
 const time = (iso: string) => new Date(iso).toLocaleString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
-type Status = "connecting" | "live" | "polling" | "offline" | "demo";
+type Status = "connecting" | "live" | "polling" | "offline";
 const statusLabels: Record<Status, string> = {
   connecting: "Connexion en cours…",
   live: "en direct",
   polling: "actualisé toutes les 15 secondes",
   offline: "connexion interrompue",
-  demo: "démo sur cet appareil",
 };
 const sameMessage = (a: WallMessage, b: WallMessage) => a.createdAt === b.createdAt && a.firstName === b.firstName && a.body === b.body;
 
@@ -20,7 +18,7 @@ export function WallScreen() {
   const [board, setBoard] = useState<LeaderboardEntry[] | null>(null);
   const [msgs, setMsgs] = useState<WallMessage[] | null>(null);
   const [error, setError] = useState("");
-  const [status, setStatus] = useState<Status>(isDemo ? "demo" : "connecting");
+  const [status, setStatus] = useState<Status>("connecting");
   const [open, setOpen] = useState<WallMessage | null>(null);
   const alive = useRef(false);
   const generation = useRef(0);
@@ -41,7 +39,7 @@ export function WallScreen() {
     alive.current = true;
     void refresh();
     const unsubscribe = subscribeToWall(() => { void refresh(); }, (next) => {
-      if (alive.current) setStatus(next);
+      if (alive.current && next in statusLabels) setStatus(next as Status);
     });
     return () => { alive.current = false; generation.current++; unsubscribe(); };
   }, [refresh]);
@@ -53,7 +51,7 @@ export function WallScreen() {
         <button className="btn btn-primary min-h-11 px-4 text-sm" onClick={() => go("/quiz")}>Jouer</button>
       </header>
       <div className="mt-6 flex items-end gap-3">
-        <Avatar n={5} size={80} className="animate-float" alt="" />
+        <Avatar n="wall" size={80} className="animate-float" alt="" />
         <div>
           <h1 className="text-4xl font-black italic">Le mur</h1>
           <p className="flex items-center gap-2 text-sm text-muted-foreground" role="status"><span className={`h-2 w-2 rounded-full ${error || status === "offline" ? "bg-muted-foreground" : "animate-pulse bg-primary"}`} />{statusLabels[error ? "offline" : status]}</p>
@@ -69,7 +67,7 @@ export function WallScreen() {
           <ol className="space-y-2">
             {board.map((person, i) => (
               <li key={`${i}-${person.firstName}-${person.updatedAt}`} className="flex animate-slide items-center gap-3 rounded-2xl bg-muted px-4 py-3">
-                <span className="w-7 text-center text-lg font-black">{medal[i] ?? i + 1}</span>
+                <span className="w-7 text-center text-lg font-black">{i + 1}</span>
                 <span className="min-w-0 flex-1 break-words font-bold">{person.firstName}</span>
                 <span className="font-display text-xl font-black italic text-primary">{person.bestScorePercent}%</span>
               </li>
@@ -78,8 +76,8 @@ export function WallScreen() {
         )}
       </section>
       <section className="mt-8" aria-labelledby="mots">
-        <h2 id="mots" className="mb-4 text-xl font-bold">Les petits mots 💌</h2>
-        {!msgs ? <p className="text-muted-foreground">{error ? "Messages indisponibles." : "Chargement…"}</p> : msgs.length === 0 ? <p className="text-muted-foreground">Le mur attend ses premiers mots doux 💌</p> : (
+        <h2 id="mots" className="mb-4 text-xl font-bold">Les petits mots</h2>
+        {!msgs ? <p className="text-muted-foreground">{error ? "Messages indisponibles." : "Chargement…"}</p> : msgs.length === 0 ? <p className="text-muted-foreground">Le mur attend ses premiers mots doux</p> : (
           <ul className="grid gap-4 sm:grid-cols-2">
             {msgs.map((message, i) => (
               <li key={`${message.createdAt}-${i}`} className={tilt[i % 4]}>

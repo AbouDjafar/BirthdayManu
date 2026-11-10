@@ -1,9 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { loadManuellaCode, loadPlayer, MANUELLA_NAME, saveManuellaCode, savePlayer } from "../app/storage";
+import { avatar, loadManuellaCode, loadPlayer, MANUELLA_NAME, saveManuellaCode, savePlayer } from "../app/storage";
 
 beforeEach(() => { localStorage.clear(); sessionStorage.clear(); saveManuellaCode(null); vi.restoreAllMocks(); });
 
 describe("identité des participantes", () => {
+  it("résout les portraits par rôle avec des chemins ASCII", () => {
+    expect(avatar("welcome")).toBe("/assets/portraits/bisous.webp");
+    expect(avatar("thinking")).toBe("/assets/portraits/cogite.webp");
+    expect(avatar("hungry")).toBe("/assets/portraits/affamee.webp");
+    expect(avatar("memory")).toBe("/assets/portraits/rememore.webp");
+    expect(avatar("private")).toBe("/assets/portraits/emue.webp");
+    expect(avatar("score-100")).toBe("/assets/portraits/emue.webp");
+  });
+
   it("conserve une identité valide lors du retour et en crée une autre pour une autre amie", () => {
     const first = savePlayer(" Alice A. ");
     expect(first.firstName).toBe("Alice A.");

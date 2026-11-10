@@ -4,9 +4,9 @@ import * as api from "../app/api";
 import { App } from "../app/App";
 import questions from "../app/questions.json";
 import { loadPlayer, saveManuellaCode, savePlayer } from "../app/storage";
+import { SIGNATURE } from "../app/ui";
 
 vi.mock("../app/api", () => ({
-  isDemo: true,
   errorMessage: (error: unknown) => error instanceof Error ? error.message : "Erreur de connexion",
   getMyBest: vi.fn(),
   getLeaderboard: vi.fn(),
@@ -17,6 +17,11 @@ vi.mock("../app/api", () => ({
   postManuellaMessage: vi.fn(),
   getManuellaContent: vi.fn(),
   subscribeToWall: vi.fn(),
+}));
+
+vi.mock("../app/ShareResult", () => ({
+  ShareResult: ({ firstName, scorePercent, ready }: { firstName: string; scorePercent: number; ready: boolean }) =>
+    <div data-testid="share-result" data-first-name={firstName} data-score={scorePercent} data-ready={String(ready)} />,
 }));
 
 let invalidate: () => void;
@@ -44,7 +49,7 @@ beforeEach(() => {
   vi.mocked(api.getManuellaContent).mockResolvedValue(privateContent);
   unsubscribe = vi.fn();
   vi.mocked(api.subscribeToWall).mockImplementation((callback, onStatus) => {
-    invalidate = callback; onStatus?.("demo"); return unsubscribe;
+    invalidate = callback; onStatus?.("live"); return unsubscribe;
   });
   vi.spyOn(window, "matchMedia").mockImplementation((media) => ({
     matches: true, media, onchange: null, addListener: vi.fn(), removeListener: vi.fn(),
@@ -76,7 +81,8 @@ describe("parcours de l’application", () => {
     render(<App />);
     fireEvent.click(screen.getByRole("button", { name: /Je relève le défi/ }));
     const dialog = screen.getByRole("dialog", { name: "Ton prénom" });
-    expect(within(dialog).getByText(/Mode démo/)).toBeInTheDocument();
+    expect(within(dialog).getByText(SIGNATURE)).toBeInTheDocument();
+    expect(screen.queryByText(/Mode démo/)).not.toBeInTheDocument();
     fireEvent.change(screen.getByRole("textbox", { name: "Ton prénom" }), { target: { value: "A" } });
     expect(screen.getByRole("button", { name: "C'est parti" })).toBeDisabled();
     fireEvent.change(screen.getByRole("textbox", { name: "Ton prénom" }), { target: { value: "Alice A." } });
@@ -85,13 +91,21 @@ describe("parcours de l’application", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("Réseau indisponible");
     fireEvent.click(screen.getByRole("button", { name: "Réessayer l’envoi" }));
     expect(await screen.findByRole("button", { name: /Découvrir ma surprise/ })).toBeInTheDocument();
+    const resultCard = screen.getByLabelText("Carte de résultat");
+    expect(within(resultCard).getByText("Alice A.")).toBeInTheDocument();
+    expect(within(resultCard).getByText("60%")).toBeInTheDocument();
+    expect(within(resultCard).getByRole("img")).toHaveAttribute("src", "/assets/portraits/etonnee.webp");
+    expect(within(resultCard).queryByText(SIGNATURE)).not.toBeInTheDocument();
+    expect(screen.getByTestId("share-result")).toHaveAttribute("data-first-name", "Alice A.");
+    expect(screen.getByTestId("share-result")).toHaveAttribute("data-score", "60");
+    expect(screen.getByTestId("share-result")).toHaveAttribute("data-ready", "true");
     expect(api.submitQuiz).toHaveBeenCalledTimes(2);
     expect(vi.mocked(api.submitQuiz).mock.calls[1]).toEqual(vi.mocked(api.submitQuiz).mock.calls[0]);
     fireEvent.click(screen.getByRole("button", { name: /Découvrir ma surprise/ }));
     fireEvent.click(await screen.findByRole("button", { name: "Touche pour dévoiler la photo" }));
     fireEvent.click(screen.getByRole("button", { name: /Lui laisser un mot/ }));
     fireEvent.change(await screen.findByLabelText(/Ton message/), { target: { value: "Joyeux anniversaire !" } });
-    fireEvent.click(screen.getByRole("button", { name: "Envoyer 💌" }));
+    fireEvent.click(screen.getByRole("button", { name: "Envoyer" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Attends 30 secondes");
     expect(screen.getByLabelText(/Ton message/)).toHaveValue("Joyeux anniversaire !");
     fireEvent.click(screen.getByRole("button", { name: /Réessayer l’envoi/ }));
@@ -119,6 +133,7 @@ describe("parcours de l’application", () => {
     expect(await screen.findByRole("button", { name: /Découvrir ma surprise/ })).toBeInTheDocument();
     expect(api.submitManuellaQuiz).toHaveBeenCalledWith("secret-test", { q1: 0, q2: 0, q3: 0, q4: 0, q5: 0 });
     expect(api.submitQuiz).not.toHaveBeenCalled();
+    expect(screen.getByTestId("share-result")).toHaveAttribute("data-first-name", "Manuella l'Anniversaireuse");
     expect(loadPlayer()).toEqual(friend);
   }, 10000);
 
@@ -133,7 +148,7 @@ describe("parcours de l’application", () => {
     await screen.findByRole("heading", { name: "Le mur" });
     navigate("#/mot");
     fireEvent.change(await screen.findByLabelText(/Ton message/), { target: { value: "Merci mes amies !" } });
-    fireEvent.click(screen.getByRole("button", { name: "Envoyer 💌" }));
+    fireEvent.click(screen.getByRole("button", { name: "Envoyer" }));
     await waitFor(() => expect(api.postManuellaMessage).toHaveBeenCalledWith("secret-test", "Merci mes amies !"));
     expect(api.postMessage).not.toHaveBeenCalled();
     expect(loadPlayer()).toEqual(friend);

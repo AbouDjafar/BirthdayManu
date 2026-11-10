@@ -6,7 +6,6 @@ vi.mock("@supabase/supabase-js", () => ({ createClient: fake.create }));
 beforeEach(() => {
   vi.resetModules();
   vi.clearAllMocks();
-  vi.stubEnv("VITE_DATA_MODE", "supabase");
   vi.stubEnv("VITE_SUPABASE_URL", "https://example.supabase.co");
   vi.stubEnv("VITE_SUPABASE_PUBLISHABLE_KEY", "sb_publishable_test_only");
   fake.create.mockReturnValue({ rpc: fake.rpc, channel: () => ({ on: fake.on }), removeChannel: fake.remove });
@@ -22,9 +21,8 @@ describe("adaptateur Supabase", () => {
     expect(await api.submitQuiz("c364be99-7adb-4c07-9dd3-53b13f33466a", "  Alice  ", { q1: 0, q2: 1, q3: 0, q4: 0, q5: 0 })).toEqual({ scorePercent: 80, bestScorePercent: 100 });
     expect(fake.rpc).toHaveBeenCalledWith("submit_quiz", {
       p_player_id: "c364be99-7adb-4c07-9dd3-53b13f33466a", p_first_name: "Alice",
-      p_answers: { q1: "Rose bonbon", q2: "Marie", q3: "Ndolé", q4: "Un café", q5: "Sur une plage" },
+      p_answers: { q1: "Bleu", q2: "Marie", q3: "Le ndolé", q4: "Les petits cailloux", q5: "Un voyage improvisé" },
     });
-    expect(api.isDemo).toBe(false);
   });
 
   it("ne remplace jamais une panne par des données fictives", async () => {
