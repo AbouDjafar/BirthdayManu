@@ -1,0 +1,136 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * "Marinière & bonbon" — inspired by Manuella's striped top, pink glasses and blue headband.
+ * Cream paper, navy ink, candy pink, warm gold.
+ */
+@theme inline {
+  --font-display: "Fraunces", Georgia, serif;
+  --font-sans: "Nunito", system-ui, sans-serif;
+  --font-hand: "Caveat", cursive;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-gold: var(--gold);
+  --color-ink: var(--ink);
+  --color-ink-foreground: var(--ink-foreground);
+  --color-blush: var(--blush);
+}
+
+:root {
+  --radius: 1.25rem;
+  --background: oklch(0.975 0.018 80);
+  --foreground: oklch(0.27 0.08 268);
+  --card: oklch(0.995 0.008 80);
+  --card-foreground: oklch(0.27 0.08 268);
+  --popover: oklch(0.995 0.008 80);
+  --popover-foreground: oklch(0.27 0.08 268);
+  --primary: oklch(0.64 0.2 2);
+  --primary-foreground: oklch(0.99 0.01 80);
+  --secondary: oklch(0.93 0.04 10);
+  --secondary-foreground: oklch(0.32 0.1 268);
+  --muted: oklch(0.94 0.02 80);
+  --muted-foreground: oklch(0.47 0.05 268);
+  --accent: oklch(0.82 0.13 80);
+  --accent-foreground: oklch(0.27 0.08 268);
+  --destructive: oklch(0.58 0.22 27);
+  --destructive-foreground: oklch(0.99 0 0);
+  --border: oklch(0.88 0.03 70);
+  --input: oklch(0.88 0.03 70);
+  --ring: oklch(0.64 0.2 2);
+  --gold: oklch(0.78 0.14 78);
+  --ink: oklch(0.27 0.08 268);
+  --ink-foreground: oklch(0.97 0.02 80);
+  --blush: oklch(0.88 0.07 5);
+
+  --gradient-candy: linear-gradient(135deg, oklch(0.7 0.19 5), oklch(0.62 0.21 355));
+  --gradient-night: radial-gradient(120% 90% at 50% 0%, oklch(0.36 0.1 300), oklch(0.2 0.07 275) 70%);
+  --shadow-sticker: 0 6px 0 -1px var(--ink), 0 14px 30px -10px color-mix(in oklab, var(--ink) 45%, transparent);
+  --shadow-soft: 0 20px 50px -20px color-mix(in oklab, var(--ink) 40%, transparent);
+  --stripes: repeating-linear-gradient(0deg, var(--ink) 0 10px, var(--card) 10px 22px);
+}
+
+@layer base {
+  * { border-color: var(--color-border); }
+  html { -webkit-tap-highlight-color: transparent; }
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    background-image:
+      radial-gradient(circle at 15% 10%, color-mix(in oklab, var(--blush) 70%, transparent) 0 18%, transparent 40%),
+      radial-gradient(circle at 90% 85%, color-mix(in oklab, var(--accent) 35%, transparent) 0 12%, transparent 35%);
+    background-attachment: fixed;
+    min-height: 100dvh;
+  }
+  :focus-visible { outline: 3px solid var(--ring); outline-offset: 3px; border-radius: 12px; }
+  h1, h2, h3 { font-family: var(--font-display); }
+}
+
+@utility font-display { font-family: var(--font-display); }
+@utility font-hand { font-family: var(--font-hand); }
+@utility bg-candy { background-image: var(--gradient-candy); }
+@utility bg-night { background-image: var(--gradient-night); }
+@utility bg-stripes { background-image: var(--stripes); }
+@utility shadow-sticker { box-shadow: var(--shadow-sticker); }
+@utility shadow-soft { box-shadow: var(--shadow-soft); }
+
+@utility btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: .5rem;
+  min-height: 3.25rem; padding: 0 1.5rem; border-radius: 999px; font-weight: 800;
+  border: 2.5px solid var(--ink); transition: transform .15s ease, box-shadow .15s ease;
+  box-shadow: 0 4px 0 var(--ink);
+  &:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--ink); }
+  &:disabled { opacity: .5; pointer-events: none; }
+}
+@utility btn-primary { background-image: var(--gradient-candy); color: var(--primary-foreground); }
+@utility btn-ghost { background: var(--card); color: var(--ink); }
+@utility btn-gold { background: var(--gold); color: var(--ink); }
+
+@keyframes float { 0%,100% { transform: translateY(0) rotate(-2deg); } 50% { transform: translateY(-10px) rotate(2deg); } }
+@keyframes pop-in { 0% { transform: scale(.4) rotate(-12deg); opacity: 0; } 70% { transform: scale(1.08) rotate(3deg); opacity: 1; } 100% { transform: scale(1) rotate(0); } }
+@keyframes sheet-up { from { transform: translateY(40px) scale(.97); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes wiggle { 0%,100% { transform: rotate(0); } 25% { transform: rotate(-6deg); } 75% { transform: rotate(6deg); } }
+@keyframes twinkle { 0%,100% { opacity: .2; transform: scale(.7); } 50% { opacity: 1; transform: scale(1); } }
+@keyframes slide-in { from { transform: translateY(-14px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes unblur { from { filter: blur(24px) saturate(.4); transform: scale(1.15); } to { filter: blur(0) saturate(1); transform: scale(1); } }
+
+@utility animate-float { animation: float 4s ease-in-out infinite; }
+@utility animate-pop { animation: pop-in .6s cubic-bezier(.2,.9,.3,1.3) both; }
+@utility animate-sheet { animation: sheet-up .4s cubic-bezier(.2,.9,.3,1) both; }
+@utility animate-fade { animation: fade-in .3s ease both; }
+@utility animate-wiggle { animation: wiggle .5s ease-in-out 2; }
+@utility animate-twinkle { animation: twinkle 2.4s ease-in-out infinite; }
+@utility animate-slide { animation: slide-in .5s ease both; }
+@utility animate-unblur { animation: unblur 2.2s cubic-bezier(.3,.7,.2,1) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}

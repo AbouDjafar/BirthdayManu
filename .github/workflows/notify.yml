@@ -1,0 +1,44 @@
+name: Notifications du mur
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+      timezone: Africa/Douala
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Simuler sans envoyer de mail ni marquer les messages"
+        type: boolean
+        required: true
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wall-notifications
+  cancel-in-progress: false
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - name: Envoyer les récapitulatifs
+        run: node scripts/notify.mjs
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY || secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          MAIL_FROM: ${{ secrets.MAIL_FROM }}
+          OWNER_EMAIL: ${{ secrets.OWNER_EMAIL }}
+          MANUELLA_EMAIL: ${{ secrets.MANUELLA_EMAIL }}
+          MANUELLA_NOTIFY_FROM: ${{ vars.MANUELLA_NOTIFY_FROM || '2026-12-12' }}
+          NOTIFY_DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && 'true' || 'false' }}

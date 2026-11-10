@@ -1,0 +1,290 @@
+import { useEffect, useRef, useState } from "react";
+import questions from "./questions.json";
+import { errorMessage, getMyBest, postManuellaMessage, postMessage, submitManuellaQuiz, submitQuiz } from "./api";
+import { go, useApp } from "./App";
+import { asset, MANUELLA_NAME, scoreTier } from "./storage";
+import { Avatar, Modal, confetti } from "./ui";
+
+export function Header() {
+  const { manuella, leaveManuella } = useApp();
+  return (
+    <header className="flex flex-wrap items-center justify-between gap-2">
+      <a href="#/" className="font-hand text-2xl text-ink">Manuella · 12.12</a>
+      <a href="#/mur" className="btn btn-ghost min-h-11 px-4 text-sm">Le mur 💌</a>
+      {manuella && <button className="w-full text-right text-xs text-muted-foreground underline" onClick={() => { leaveManuella(); go("/"); }}>Quitter l’accès Manuella</button>}
+    </header>
+  );
+}
+
+export function HomeScreen() {
+  const { player, setName, manuella, result } = useApp();
+  const [best, setBest] = useState<number | null>(null);
+  const [error, setError] = useState("");
+  const [attempt, setAttempt] = useState(0);
+  const [open, setOpen] = useState(false);
+  const [name, setNameInput] = useState("");
+  const valid = name.trim().length >= 2 && name.trim().length <= 30;
+  const firstName = manuella ? MANUELLA_NAME : player?.firstName;
+  const shownBest = manuella
+    ? result ? Math.max(manuella.bestScorePercent ?? 0, result.bestScorePercent) : manuella.bestScorePercent
+    : best;
+
+  useEffect(() => {
+    if (!player || manuella) return;
+    let alive = true;
+    setBest(null); setError("");
+    getMyBest(player.playerId).then((value) => { if (alive) setBest(value?.bestScorePercent ?? null); })
+      .catch((reason: unknown) => { if (alive) setError(errorMessage(reason)); });
+    return () => { alive = false; };
+  }, [player, manuella, attempt]);
+
+  return (
+    <>
+      <Header />
+      <section className="flex flex-1 flex-col items-center justify-center gap-6 py-8 text-center">
+        <div className="relative">
+          <div className="absolute -inset-4 -z-10 rotate-6 rounded-[2.5rem] bg-stripes opacity-90" aria-hidden />
+          <Avatar n={2} size={190} className="animate-float" alt="Manuella qui t'accueille les bras ouverts" />
+          <span className="absolute -right-6 -top-3 rotate-12 rounded-full border-2 border-ink bg-gold px-3 py-1 text-sm font-extrabold text-ink shadow-sticker">12 déc.</span>
+        </div>
+        <div className="animate-slide">
+          <p className="font-hand text-3xl text-primary">C'est l'anniversaire de</p>
+          <h1 className="text-6xl font-black italic leading-none text-ink sm:text-7xl">Manuella</h1>
+        </div>
+        {firstName ? (
+          <div className="space-y-4">
+            <p className="text-lg">Re bonjour <strong>{firstName}</strong> 👋</p>
+            {shownBest !== null && <p className="text-muted-foreground">Ton meilleur score : <strong className="text-primary">{shownBest} %</strong>. Tu peux faire mieux ?</p>}
+            {error && <div className="space-y-2"><p role="alert">{error}</p><button className="underline" onClick={() => setAttempt((n) => n + 1)}>Réessayer le chargement du score</button></div>}
+            <button className="btn btn-primary w-full max-w-xs text-lg" onClick={() => go("/quiz")}>Rejouer ✨</button>
+            {!manuella && <button className="block w-full text-sm text-muted-foreground underline" onClick={() => setOpen(true)}>Ce n'est pas moi</button>}
+            {manuella && <a className="block text-sm underline" href={`#/m-${encodeURIComponent(manuella.code)}`}>Relire ma lettre 💌</a>}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <p className="max-w-sm text-lg text-muted-foreground">5 questions pour prouver que tu la connais <em>vraiment</em>. Une surprise t'attend à la fin.</p>
+            <button className="btn btn-primary w-full max-w-xs text-lg" onClick={() => setOpen(true)}>Je relève le défi 💪</button>
+          </div>
+        )}
+      </section>
+      {open && (
+        <Modal label="Ton prénom" onClose={() => setOpen(false)}>
+          <form className="space-y-5 text-center" onSubmit={(event) => { event.preventDefault(); if (!valid) return; setName(name.trim()); go("/quiz"); }}>
+            <Avatar n={3} size={96} className="mx-auto animate-pop" alt="" />
+            <h2 className="text-3xl font-bold">Et toi, tu es… ?</h2>
+            <label htmlFor="firstName" className="sr-only">Ton prénom</label>
+            <input id="firstName" data-autofocus value={name} maxLength={30} autoComplete="given-name" onChange={(event) => setNameInput(event.target.value)} placeholder="Ton prénom"
+              className="h-14 w-full rounded-2xl border-[2.5px] border-ink bg-background px-4 text-center text-xl font-bold outline-none focus:border-primary" />
+            <p className="text-sm text-muted-foreground">Entre 2 et 30 caractères. Tu peux ajouter l’initiale de ton nom.</p>
+            <button type="submit" disabled={!valid} className="btn btn-primary w-full">C'est parti</button>
+          </form>
+        </Modal>
+      )}
+    </>
+  );
+}
+
+const REACTIONS = ["Hmm, intéressant…", "Elle te regarde 👀", "Ok ok, noté !", "Ça sent le sans-faute ?", "Dernière ligne droite !"];
+
+export function QuizScreen() {
+  const { player, manuella, setResult } = useApp();
+  const [i, setI] = useState(0);
+  const [answers, setAnswers] = useState<Record<string, number>>({});
+  const [picked, setPicked] = useState<number | null>(null);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState("");
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const alive = useRef(true);
+  const busy = useRef(false);
+
+  useEffect(() => {
+    alive.current = true;
+    return () => { alive.current = false; if (timer.current) clearTimeout(timer.current); };
+  }, []);
+  useEffect(() => { if (!player && !manuella) go("/"); }, [player, manuella]);
+  if (!player && !manuella) return null;
+  const q = questions[i]!;
+
+  const send = async (values: Record<string, number>) => {
+    if (busy.current) return;
+    busy.current = true; setSending(true); setError("");
+    try {
+      const result = manuella
+        ? await submitManuellaQuiz(manuella.code, values)
+        : await submitQuiz(player!.playerId, player!.firstName, values);
+      if (!alive.current) return;
+      setResult(result); go("/resultat");
+    } catch (reason) {
+      if (alive.current) { setError(errorMessage(reason)); setSending(false); }
+    } finally { busy.current = false; }
+  };
+
+  const choose = (idx: number) => {
+    if (picked !== null) return;
+    setPicked(idx);
+    const next = { ...answers, [q.id]: idx };
+    setAnswers(next);
+    timer.current = setTimeout(() => {
+      if (!alive.current) return;
+      if (i < questions.length - 1) { setI(i + 1); setPicked(null); }
+      else void send(next);
+    }, 650);
+  };
+
+  return (
+    <>
+      <Header />
+      <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center opacity-60" aria-hidden>
+        <Avatar n={q.avatar} size={160} className="animate-float" alt="" />
+      </div>
+      <Modal label={sending || error ? "Vérification des réponses" : `Question ${i + 1} sur ${questions.length}`}>
+        {sending ? (
+          <div className="space-y-4 py-8 text-center" role="status">
+            <Avatar n={3} size={110} className="mx-auto animate-wiggle" alt="" />
+            <p className="font-hand text-3xl">Manuella vérifie tes réponses…</p>
+          </div>
+        ) : error ? (
+          <div className="space-y-4 py-4 text-center">
+            <h2 className="text-2xl font-bold">Tes réponses sont bien gardées</h2>
+            <p role="alert">{error}</p>
+            <button className="btn btn-primary w-full" onClick={() => void send(answers)}>Réessayer l’envoi</button>
+            <button className="w-full text-sm underline" onClick={() => go("/")}>Revenir à l’accueil</button>
+          </div>
+        ) : (
+          <div key={q.id} className="animate-slide space-y-5">
+            <div className="flex items-center gap-3">
+              <div className="flex flex-1 gap-1.5" role="progressbar" aria-valuemin={1} aria-valuemax={questions.length} aria-valuenow={i + 1} aria-label="Progression">
+                {questions.map((_, k) => <span key={k} className={`h-2.5 flex-1 rounded-full border-2 border-ink ${k <= i ? "bg-candy" : "bg-muted"}`} />)}
+              </div>
+              <span className="text-sm font-extrabold">{i + 1}/{questions.length}</span>
+            </div>
+            <div className="flex items-center gap-4">
+              <Avatar n={q.avatar} size={72} className="shrink-0 animate-pop" alt="" />
+              <p className="font-hand text-2xl text-primary">{REACTIONS[i]}</p>
+            </div>
+            <h2 className="text-2xl font-bold leading-tight">{q.text}</h2>
+            <div className="grid gap-3">
+              {q.options.map((option, idx) => (
+                <button key={option} disabled={picked !== null} onClick={() => choose(idx)}
+                  className={`min-h-14 rounded-2xl border-[2.5px] border-ink px-4 text-left text-lg font-bold transition-all ${picked === idx ? "translate-x-1 bg-candy text-primary-foreground" : "bg-background"} ${picked !== null && picked !== idx ? "opacity-50" : ""}`}>
+                  <span className="mr-2 font-display italic text-primary">{String.fromCharCode(65 + idx)}.</span>
+                  <span className={picked === idx ? "text-primary-foreground" : ""}>{option}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </Modal>
+    </>
+  );
+}
+
+export function ResultScreen() {
+  const { result } = useApp();
+  const [n, setN] = useState(0);
+  useEffect(() => { if (!result) go("/"); }, [result]);
+  useEffect(() => {
+    if (!result) return;
+    const target = result.scorePercent;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) { setN(target); return; }
+    const start = performance.now();
+    let raf = 0;
+    let stopConfetti: (() => void) | undefined;
+    const step = (t: number) => {
+      const p = Math.min(1, (t - start) / 1600);
+      setN(Math.round(target * (1 - Math.pow(1 - p, 3))));
+      if (p < 1) raf = requestAnimationFrame(step); else stopConfetti = confetti(scoreTier(target).confetti);
+    };
+    raf = requestAnimationFrame(step);
+    return () => { cancelAnimationFrame(raf); stopConfetti?.(); };
+  }, [result]);
+  if (!result) return null;
+  const tier = scoreTier(result.scorePercent);
+  const C = 2 * Math.PI * 70;
+  return (
+    <>
+      <Header /><div className="flex-1" />
+      <Modal label="Ton score">
+        <div className="space-y-4 text-center">
+          <div className="relative mx-auto h-48 w-48">
+            <svg viewBox="0 0 160 160" className="h-full w-full -rotate-90" aria-hidden>
+              <circle cx="80" cy="80" r="70" fill="none" stroke="var(--muted)" strokeWidth="14" />
+              <circle cx="80" cy="80" r="70" fill="none" stroke="var(--primary)" strokeWidth="14" strokeLinecap="round" strokeDasharray={C} strokeDashoffset={C * (1 - n / 100)} />
+            </svg>
+            <div className="absolute inset-0 grid place-items-center"><span className="font-display text-5xl font-black italic" aria-live="polite">{n}%</span></div>
+          </div>
+          <Avatar n={tier.avatar} size={84} className="mx-auto animate-pop" alt="La réaction de Manuella" />
+          <h2 className="text-3xl font-black">{tier.title}</h2><p className="text-muted-foreground">{tier.text}</p>
+          {result.bestScorePercent > result.scorePercent && <p className="text-sm">Ton record reste <strong>{result.bestScorePercent} %</strong>.</p>}
+          <button className="btn btn-gold w-full text-lg" onClick={() => go("/surprise")}>Découvrir ma surprise 🎁</button>
+        </div>
+      </Modal>
+    </>
+  );
+}
+
+export function SurpriseScreen() {
+  const [revealed, setRevealed] = useState(false);
+  useEffect(() => revealed ? confetti(80) : undefined, [revealed]);
+  return (
+    <>
+      <Header /><div className="flex-1" />
+      <Modal label="La surprise">
+        <div className="space-y-5 text-center">
+          <h2 className="text-3xl font-black">Un petit cadeau pour toi</h2>
+          <button onClick={() => setRevealed(true)} disabled={revealed}
+            aria-label={revealed ? "Photo dévoilée" : "Touche pour dévoiler la photo"}
+            className="relative mx-auto block aspect-square w-full max-w-xs overflow-hidden rounded-[1.75rem] border-[3px] border-ink shadow-sticker disabled:opacity-100">
+            <img src={asset("assets/surprise.webp")} alt="Photo surprise de Manuella" className={`h-full w-full object-cover ${revealed ? "animate-unblur" : "scale-110 blur-2xl saturate-50"}`} />
+            {!revealed && <span className="absolute inset-0 grid place-items-center bg-ink/30"><span className="rounded-full border-2 border-ink bg-card px-5 py-3 font-extrabold text-ink shadow-sticker animate-wiggle">Touche pour dévoiler ✨</span></span>}
+          </button>
+          {revealed && <p className="animate-slide font-hand text-3xl leading-tight text-primary">Merci d'être là pour elle. Le gâteau, c'est le 12 — ne sois pas en retard 🎂</p>}
+          <button className="btn btn-primary w-full" disabled={!revealed} onClick={() => go("/mot")}>Lui laisser un mot 💌</button>
+        </div>
+      </Modal>
+    </>
+  );
+}
+
+export function NoteScreen() {
+  const { player, manuella } = useApp();
+  const [body, setBody] = useState("");
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState("");
+  const alive = useRef(true);
+  const busy = useRef(false);
+  useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
+  useEffect(() => { if (!player && !manuella) go("/"); }, [player, manuella]);
+  if (!player && !manuella) return null;
+  const left = 280 - body.length;
+  return (
+    <>
+      <Header /><div className="flex-1" />
+      <Modal label="Laisser un mot">
+        <form className="space-y-4" onSubmit={async (event) => {
+          event.preventDefault();
+          if (!body.trim() || busy.current) return;
+          busy.current = true; setSending(true); setError("");
+          try {
+            if (manuella) await postManuellaMessage(manuella.code, body.trim());
+            else await postMessage(player!.playerId, player!.firstName, body.trim());
+            if (alive.current) go("/mur");
+          } catch (reason) { if (alive.current) setError(errorMessage(reason)); }
+          finally { busy.current = false; if (alive.current) setSending(false); }
+        }}>
+          <div className="flex items-center gap-3">
+            <Avatar n={4} size={64} className="animate-pop" alt="" />
+            <h2 className="text-2xl font-black leading-tight">Un mot doux pour Manuella</h2>
+          </div>
+          <label htmlFor="note" className="text-sm font-bold">Ton message (il sera visible sur le mur)</label>
+          <textarea id="note" data-autofocus rows={5} maxLength={280} value={body} disabled={sending} onChange={(event) => setBody(event.target.value)}
+            placeholder="Joyeux anniversaire ma belle…" className="w-full resize-none rounded-2xl border-[2.5px] border-ink bg-background p-4 text-lg outline-none focus:border-primary" />
+          <p className={`text-right text-sm font-bold ${left < 20 ? "text-primary" : "text-muted-foreground"}`} aria-live="polite">{left} caractères restants</p>
+          {error && <p role="alert">{error}</p>}
+          <button type="submit" disabled={!body.trim() || sending} className="btn btn-primary w-full">{sending ? "Envoi…" : error ? "Réessayer l’envoi 💌" : "Envoyer 💌"}</button>
+          <button type="button" disabled={sending} onClick={() => go("/mur")} className="block w-full py-2 text-center text-muted-foreground underline">Passer cette étape</button>
+        </form>
+      </Modal>
+    </>
+  );
+}
