@@ -130,9 +130,10 @@ export async function runNotifications({
   createTransport = defaultCreateTransport,
   logger = console,
 } = {}) {
-  const summary = { skipped: false, dryRun, errors: 0, owner: null, manuella: null };
-  const url = env.SUPABASE_URL?.trim();
-  const key = env.SUPABASE_SECRET_KEY || env.SUPABASE_SERVICE_ROLE_KEY;
+  const summary = { skipped: false, dryRun, errors: 0, keepAliveOnly: false, owner: null, manuella: null };
+  const url = env.SUPABASE_URL?.trim() || env.VITE_SUPABASE_URL?.trim();
+  const privilegedKey = env.SUPABASE_SECRET_KEY || env.SUPABASE_SERVICE_ROLE_KEY;
+  const key = privilegedKey || env.SUPABASE_PUBLISHABLE_KEY || env.VITE_SUPABASE_PUBLISHABLE_KEY;
   if (!url || !key) {
     logger.info("Configuration Supabase absente ou incomplète : notifications en attente de configuration.");
     summary.skipped = true;
@@ -145,6 +146,20 @@ export async function runNotifications({
   } catch {
     logger.error("Connexion Supabase impossible. Vérifier la configuration des notifications.");
     summary.errors += 1;
+    return summary;
+  }
+
+  if (!privilegedKey) {
+    summary.keepAliveOnly = true;
+    try {
+      // The public RPC performs a real query; no mail or privileged table access.
+      const { error } = await client.rpc("get_leaderboard");
+      if (error) throw new Error("PUBLIC_KEEPALIVE_FAILED");
+      logger.info("Activité Supabase vérifiée avec la clé publique. Notifications en attente de la clé serveur.");
+    } catch {
+      summary.errors += 1;
+      logger.error("Vérification publique Supabase impossible. Vérifier la configuration et le backend.");
+    }
     return summary;
   }
 

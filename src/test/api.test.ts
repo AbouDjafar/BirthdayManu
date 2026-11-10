@@ -28,7 +28,7 @@ describe("adaptateur Supabase", () => {
   });
 
   it("ne remplace jamais une panne par des données fictives", async () => {
-    fake.rpc.mockResolvedValue({ data: null, error: { message: "Failed to fetch" } });
+    fake.rpc.mockReturnValue({ range: vi.fn().mockResolvedValue({ data: null, error: { message: "Failed to fetch" } }) });
     const api = await import("../app/api");
     await expect(api.getLeaderboard()).rejects.toThrow("Failed to fetch");
     vi.stubEnv("VITE_SUPABASE_PUBLISHABLE_KEY", "");
@@ -44,6 +44,17 @@ describe("adaptateur Supabase", () => {
     fake.rpc.mockResolvedValue({ data: { score: 60, best: 80 }, error: null });
     await api.submitManuellaQuiz("a".repeat(43), { q1: 0, q2: 1, q3: 0, q4: 0, q5: 0 });
     expect(fake.rpc.mock.calls[0]?.[0]).toBe("submit_manuella_quiz");
+  });
+
+  it("charge tous les messages même si Supabase limite les pages", async () => {
+    const messages = Array.from({ length: 1_205 }, (_, index) => ({ first_name: `Amie ${index}`, body: "Bonjour", created_at: "2026-12-12T12:00:00Z" }));
+    const range = vi.fn(async (start: number) => ({ data: messages.slice(start, start + 137), count: messages.length, error: null }));
+    fake.rpc.mockReturnValue({ range });
+    const api = await import("../app/api");
+    const values = await api.getMessages();
+    expect(values).toHaveLength(1_205);
+    expect(values.at(-1)?.firstName).toBe("Amie 1204");
+    expect(range).toHaveBeenLastCalledWith(1_096, 1_595);
   });
 
   it("passe au polling en panne puis reprend le temps réel et nettoie les timers", async () => {

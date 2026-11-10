@@ -174,6 +174,62 @@ test("configured Supabase is queried with no mail settings and no messages", asy
   assert.equal(app.state.transportsCreated, 0);
 });
 
+test("public key alone performs one keepalive RPC without logging data, sending mail or marking rows", async () => {
+  const publicKey = "sb_publishable_test_placeholder";
+  const app = harness([message(1)], {
+    env: { ...configuredEnv, SUPABASE_SECRET_KEY: "", SUPABASE_PUBLISHABLE_KEY: publicKey },
+  });
+  let calls = 0;
+  const summary = await app.run({
+    now: birthday,
+    createClient: async (url, key) => {
+      assert.equal(url, configuredEnv.SUPABASE_URL);
+      assert.equal(key, publicKey);
+      return {
+        rpc: async (name) => {
+          calls += 1;
+          assert.equal(name, "get_leaderboard");
+          return { data: [{ first_name: "Confidential public name", best_score: 80 }], error: null };
+        },
+      };
+    },
+  });
+  assert.equal(calls, 1);
+  assert.equal(summary.keepAliveOnly, true);
+  assert.equal(summary.errors, 0);
+  assert.equal(app.state.transportsCreated, 0);
+  assert.equal(app.state.mails.length, 0);
+  assert.equal(app.state.updates.length, 0);
+  assert.equal(app.state.reads.length, 0);
+  assert.equal(app.state.logs.join("\n").includes("Confidential public name"), false);
+  assert.equal(app.state.logs.join("\n").includes(publicKey), false);
+});
+
+test("public keepalive failure reports a safe error without SMTP or marking", async () => {
+  const app = harness([], {
+    env: { ...configuredEnv, SUPABASE_SECRET_KEY: "", SUPABASE_PUBLISHABLE_KEY: "public-placeholder" },
+  });
+  const summary = await app.run({
+    createClient: async () => ({
+      rpc: async () => ({ error: new Error("Private provider diagnostic and credentials") }),
+    }),
+  });
+  assert.equal(summary.keepAliveOnly, true);
+  assert.equal(summary.errors, 1);
+  assert.equal(app.state.transportsCreated, 0);
+  assert.equal(app.state.updates.length, 0);
+  assert.equal(app.state.logs.join("\n").includes("Private provider diagnostic"), false);
+});
+
+test("privileged key takes precedence over the public keepalive key", async () => {
+  const app = harness([], {
+    env: { ...configuredEnv, SUPABASE_PUBLISHABLE_KEY: "public-placeholder" },
+  });
+  const summary = await app.run();
+  assert.equal(summary.keepAliveOnly, false);
+  assert.ok(app.state.reads.length > 0);
+});
+
 test("incomplete SMTP configuration never sends or marks pending messages", async () => {
   const app = harness([message(1)], { env: { ...configuredEnv, SMTP_PASS: "" } });
   const summary = await app.run();

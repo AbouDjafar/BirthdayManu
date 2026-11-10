@@ -9,6 +9,16 @@ L’interface initiale et ses images viennent de `prompt-and-portrait`. Ce dép�
 une application autonome Vite + React + TypeScript ; aucun serveur n’est requis.
 L’historique du dépôt privé d’origine n’a pas été importé.
 
+**État installé le 10 novembre 2026 :** GitHub Pages et les deux workflows sont
+actifs. Le backend est installé sur le projet Supabase `yjgasdkboahgwvdgbksp` ;
+les variables publiques GitHub et `.env.local` sont renseignées. La démo reste
+active volontairement : aucune réponse réelle, lettre privée ou identité de
+Manuella n’a encore été configurée en base.
+
+Pour passer en réel, il reste à fournir les contenus définitifs et à renseigner
+les secrets Gmail/Supabase privilégiés décrits ci-dessous. Il n’est pas nécessaire
+de recréer le projet ni les tables.
+
 ## Tester immédiatement
 
 Node.js **22.12 minimum**, npm, puis :

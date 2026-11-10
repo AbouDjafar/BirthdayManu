@@ -2,6 +2,8 @@
 
 Le workflow `Notifications du mur` interroge Supabase toutes les 30 minutes. Il envoie au maximum un récapitulatif à l'auteur et un à Manuella par exécution, uniquement s'il existe de nouveaux messages visibles. Les réponses du quiz et le message romantique ne font jamais partie de ces mails.
 
+Avant la configuration de Gmail et de la clé serveur, l'URL et la clé publique suffisent au maintien de l'activité : le script appelle une seule fois la RPC publique `get_leaderboard`, ignore les données reçues et n'envoie aucun mail. Cette étape ne nécessite aucun accès privilégié et fonctionne même si le site est encore en mode démo. Le backend SQL doit déjà être installé.
+
 Les mails à Manuella commencent le **12 décembre 2026 à 00 h 00, heure de Douala**. Cette date correspond au 11 décembre à 23 h 00 UTC. Les messages déposés avant son anniversaire restent en attente pour elle. Aucun lien secret n'est inclus dans les mails ; sa diffusion reste manuelle.
 
 ## Configurer un compte Gmail dédié
@@ -23,6 +25,8 @@ Les mails à Manuella commencent le **12 décembre 2026 à 00 h 00, heure de Dou
 
 Le nom historique `SUPABASE_SERVICE_ROLE_KEY` est également accepté lorsque `SUPABASE_SECRET_KEY` n'est pas renseigné. Ces clés serveur contournent les protections publiques de la base : elles doivent rester dans les Secrets GitHub ou dans le fichier local ignoré par Git.
 
+Pour le maintien de l'activité avec la clé publique seule, le workflow utilise les variables de dépôt `VITE_SUPABASE_URL` et `VITE_SUPABASE_PUBLISHABLE_KEY`. Le Secret `SUPABASE_URL`, s'il existe, remplace cette URL publique. En local, les noms correspondants sont `SUPABASE_URL` et `SUPABASE_PUBLISHABLE_KEY`. Quand la clé serveur est ajoutée, elle prend automatiquement le relais et le traitement habituel des notifications est activé.
+
 Dans l'onglet **Variables**, on peut ajouter `MANUELLA_NOTIFY_FROM`, au format `AAAA-MM-JJ`. Sans variable, le script utilise `2026-12-12`. Le fuseau est toujours `Africa/Douala`.
 
 Le script se connecte à `smtp.gmail.com`, port `465`, avec TLS. L'authentification SMTP n'est initialisée que lorsqu'un envoi est nécessaire. Un mot de passe Google modifié révoque les mots de passe d'application ; certaines configurations de comptes ne permettent pas d'en créer. Voir [l'aide Google](https://support.google.com/accounts/answer/185833?hl=fr).
@@ -31,7 +35,7 @@ Un compte Gmail personnel peut envoyer jusqu'à 500 mails par jour selon la [doc
 
 ## Tester sans envoyer de mail
 
-Le backend Supabase doit être créé avant les tests réseau. Sans URL ou clé serveur, le script affiche une information et termine normalement. Si Supabase est configuré mais Gmail incomplet, il interroge la base, puis laisse les messages en attente sans envoyer ni les marquer.
+Le backend Supabase doit être créé avant les tests réseau. Sans URL ou sans aucune clé, le script affiche une information et termine normalement. Avec la clé publique seule, il effectue uniquement la vérification d'activité décrite ci-dessus. Avec la clé serveur mais Gmail incomplet, il interroge la base, puis laisse les messages en attente sans envoyer ni les marquer.
 
 Dans GitHub : **Actions → Notifications du mur → Run workflow**. Garder **dry_run** coché, ce qui est le choix par défaut pour les lancements manuels. Ce mode lit les messages et affiche uniquement leur nombre. Il n'envoie rien et ne change aucun indicateur. Les exécutions planifiées fonctionnent avec l'envoi activé lorsque tous les secrets sont renseignés.
 

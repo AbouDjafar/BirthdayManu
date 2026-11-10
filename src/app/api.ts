@@ -22,6 +22,19 @@ async function rpc<T>(name: string, parameters?: Record<string, unknown>): Promi
   return data as T;
 }
 
+async function rpcList<T>(name: string): Promise<T[]> {
+  const rows: T[] = [];
+  for (;;) {
+    const { data, error, count } = await getClient().rpc(name, undefined, { count: "exact" }).range(rows.length, rows.length + 499);
+    if (error) throw new Error(error.message);
+    const page = data as T[] | null;
+    if (!page?.length) break;
+    rows.push(...page);
+    if (count !== null && rows.length >= count) break;
+  }
+  return rows;
+}
+
 const result = (value: { score: number; best: number }): QuizResult => ({ scorePercent: value.score, bestScorePercent: value.best });
 
 export async function submitQuiz(playerId: string, firstName: string, answers: Record<string, number>): Promise<QuizResult> {
@@ -39,13 +52,13 @@ export async function getMyBest(playerId: string) {
 
 export async function getLeaderboard(): Promise<LeaderboardEntry[]> {
   if (import.meta.env.VITE_DATA_MODE !== "supabase") return (await demo()).getLeaderboard();
-  const values = await rpc<{ first_name: string; best_score: number; updated_at: string }[]>("get_leaderboard");
+  const values = await rpcList<{ first_name: string; best_score: number; updated_at: string }>("get_leaderboard");
   return values.map((value) => ({ firstName: value.first_name, bestScorePercent: value.best_score, updatedAt: value.updated_at }));
 }
 
 export async function getMessages(): Promise<WallMessage[]> {
   if (import.meta.env.VITE_DATA_MODE !== "supabase") return (await demo()).getMessages();
-  const values = await rpc<{ first_name: string; body: string; created_at: string }[]>("get_messages");
+  const values = await rpcList<{ first_name: string; body: string; created_at: string }>("get_messages");
   return values.map((value) => ({ firstName: value.first_name, body: value.body, createdAt: value.created_at }));
 }
 

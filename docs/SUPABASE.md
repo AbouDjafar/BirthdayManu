@@ -5,6 +5,14 @@ préparé pour un **nouveau projet Supabase dédié**, distinct d’un éventuel
 Lovable. Les fichiers SQL sont volontairement dans `database/`, conformément aux
 consignes du dépôt ; aucune migration Lovable n’est modifiée.
 
+**Installation déjà effectuée le 10 novembre 2026** sur le projet
+`yjgasdkboahgwvdgbksp`, migration `birthday_backend_initial`. Les six tables, les
+permissions et les RPC ont été contrôlées sur le vrai projet ; il était vide et
+aucune donnée existante n’a été modifiée. L’URL et la clé publishable sont déjà
+configurées localement et dans les variables GitHub. Le mode reste `demo` jusqu’à
+validation des contenus. La section 1 ci-dessous sert à réinstaller ailleurs ;
+pour ce projet, poursuivre directement avec les contenus de la section 2.
+
 ## 1. Créer le projet gratuit
 
 1. Créer un compte sur [Supabase](https://supabase.com/dashboard), puis un nouveau
