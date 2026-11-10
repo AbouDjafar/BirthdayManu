@@ -35,6 +35,24 @@ describe("adaptateur Supabase", () => {
     await expect(unconfigured.getMessages()).rejects.toThrow("BACKEND_NOT_CONFIGURED");
   });
 
+  it("conserve le compteur serveur et les homonymes dans le classement", async () => {
+    const updatedAt = "2026-12-12T12:00:00Z";
+    const range = vi.fn().mockResolvedValue({
+      data: [
+        { first_name: "Alice", best_score: 100, updated_at: updatedAt, attempts: 3 },
+        { first_name: "Alice", best_score: 80, updated_at: updatedAt, attempts: 1 },
+      ],
+      count: 2,
+      error: null,
+    });
+    fake.rpc.mockReturnValue({ range });
+    const api = await import("../app/api");
+    expect(await api.getLeaderboard()).toEqual([
+      { firstName: "Alice", bestScorePercent: 100, updatedAt, attempts: 3 },
+      { firstName: "Alice", bestScorePercent: 80, updatedAt, attempts: 1 },
+    ]);
+  });
+
   it("rejette un code privé malformé sans RPC et utilise les RPC dédiées", async () => {
     const api = await import("../app/api");
     expect(await api.getManuellaContent("demo")).toBeNull();

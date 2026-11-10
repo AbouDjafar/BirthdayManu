@@ -68,8 +68,11 @@ export function WallScreen() {
             {board.map((person, i) => (
               <li key={`${i}-${person.firstName}-${person.updatedAt}`} className="flex animate-slide items-center gap-3 rounded-2xl bg-muted px-4 py-3">
                 <span className="w-7 text-center text-lg font-black">{i + 1}</span>
-                <span className="min-w-0 flex-1 break-words font-bold">{person.firstName}</span>
-                <span className="font-display text-xl font-black italic text-primary">{person.bestScorePercent}%</span>
+                <div className="min-w-0 flex-1">
+                  <span className="block break-words font-bold">{person.firstName}</span>
+                  {person.attempts > 1 && <span title={`${person.attempts} tentatives`} className="mt-1 inline-block max-w-full rounded-xl border border-primary/20 bg-primary/10 px-2 py-0.5 text-xs font-semibold leading-4 text-primary">A rejoué plusieurs fois</span>}
+                </div>
+                <span className="shrink-0 font-display text-xl font-black italic text-primary">{person.bestScorePercent}%</span>
               </li>
             ))}
           </ol>

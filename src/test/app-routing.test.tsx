@@ -175,16 +175,22 @@ describe("parcours de l’application", () => {
     expect(api.getManuellaContent).toHaveBeenLastCalledWith("nouveau-code");
   });
 
-  it("conserve les homonymes et retire un message modéré même s’il est ouvert", async () => {
+  it("conserve les homonymes, signale les rejeux et retire un message modéré même s’il est ouvert", async () => {
     vi.mocked(api.getLeaderboard).mockResolvedValue([
-      { firstName: "Alice", bestScorePercent: 100, updatedAt: "2026-12-11T12:00:00Z" },
-      { firstName: "Alice", bestScorePercent: 60, updatedAt: "2026-12-11T12:01:00Z" },
+      { firstName: "Alice", bestScorePercent: 100, attempts: 1, updatedAt: "2026-12-11T12:00:00Z" },
+      { firstName: "Alice", bestScorePercent: 60, attempts: 2, updatedAt: "2026-12-11T12:01:00Z" },
     ]);
     vi.mocked(api.getMessages).mockResolvedValue([{ firstName: "Brenda", body: "Un mot à modérer", createdAt: "2026-12-11T12:00:00Z" }]);
     navigate("#/mur");
     const view = render(<App />);
     expect(await screen.findByText("100%")).toBeInTheDocument();
     expect(screen.getAllByText("Alice")).toHaveLength(2);
+    const ranking = screen.getByRole("region", { name: "Le classement de mon fan club" });
+    const rows = within(ranking).getAllByRole("listitem");
+    expect(within(rows[0]!).queryByText("A rejoué plusieurs fois")).not.toBeInTheDocument();
+    expect(within(rows[1]!).getByText("A rejoué plusieurs fois")).toHaveAttribute("title", "2 tentatives");
+    expect(within(rows[0]!).getByText("Alice")).toBeInTheDocument();
+    expect(within(rows[1]!).getByText("Alice")).toBeInTheDocument();
     fireEvent.click(await screen.findByRole("button", { name: /Un mot à modérer/ }));
     expect(screen.getByRole("dialog", { name: "Mot de Brenda" })).toBeInTheDocument();
     vi.mocked(api.getMessages).mockResolvedValue([]);

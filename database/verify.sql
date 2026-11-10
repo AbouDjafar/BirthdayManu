@@ -20,6 +20,16 @@ where n.nspname = 'public' and p.proname in (
 )
 order by p.proname;
 
+-- The leaderboard exposes counts, never the UUID used as a browser credential.
+select pg_catalog.pg_get_function_result('public.get_leaderboard()'::regprocedure)
+    = 'TABLE(first_name text, best_score integer, updated_at timestamp with time zone, attempts integer)'
+  and not exists (
+    select 1 from pg_catalog.pg_proc p,
+      lateral pg_catalog.aclexplode(p.proacl) a
+    where p.oid = 'public.get_leaderboard()'::regprocedure
+      and a.grantee = 0 and a.privilege_type = 'EXECUTE'
+  ) as leaderboard_contract_ok;
+
 select
   not pg_catalog.has_function_privilege('anon', 'public.configure_birthday(jsonb,text,text,text)', 'EXECUTE')
   and not pg_catalog.has_function_privilege('authenticated', 'public.configure_birthday(jsonb,text,text,text)', 'EXECUTE')

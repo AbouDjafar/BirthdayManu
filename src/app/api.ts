@@ -47,8 +47,8 @@ export async function getMyBest(playerId: string) {
 }
 
 export async function getLeaderboard(): Promise<LeaderboardEntry[]> {
-  const values = await rpcList<{ first_name: string; best_score: number; updated_at: string }>("get_leaderboard");
-  return values.map((value) => ({ firstName: value.first_name, bestScorePercent: value.best_score, updatedAt: value.updated_at }));
+  const values = await rpcList<{ first_name: string; best_score: number; updated_at: string; attempts: number }>("get_leaderboard");
+  return values.map((value) => ({ firstName: value.first_name, bestScorePercent: value.best_score, updatedAt: value.updated_at, attempts: value.attempts }));
 }
 
 export async function getMessages(): Promise<WallMessage[]> {

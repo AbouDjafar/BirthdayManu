@@ -5,8 +5,10 @@ begin;
 
 do $$
 begin
-  if exists (select 1 from public.players where id = '11111111-1111-4111-8111-111111111111') then
-    raise exception 'The synthetic test UUID already exists; aborting without changes.';
+  if exists (select 1 from public.players where id in (
+    '11111111-1111-4111-8111-111111111111', '22222222-2222-4222-8222-222222222222'
+  ) or first_name = 'Essai RPC 20261110') then
+    raise exception 'A synthetic test identity already exists; aborting without changes.';
   end if;
   -- Empty configuration must refuse scoring (temporarily remove it in this txn).
   delete from public.quiz_answers;
@@ -18,6 +20,9 @@ begin
   end;
 end;
 $$;
+
+-- Make Manuella's test state independent of existing plays. ROLLBACK restores it.
+delete from public.scores where player_id in (select player_id from public.secret_access);
 
 select public.configure_birthday(
   '{"q1":"OPTION_TEST","q2":"OPTION_TEST","q3":"OPTION_TEST","q4":"OPTION_TEST","q5":"OPTION_TEST"}'::jsonb,
@@ -67,15 +72,32 @@ begin
     raise exception 'Reserved Manuella name was accepted';
   exception when invalid_parameter_value then null;
   end;
-  v_result := public.submit_quiz('11111111-1111-4111-8111-111111111111', '  Essai  ',
+  v_result := public.submit_quiz('11111111-1111-4111-8111-111111111111', '  Essai RPC 20261110  ',
     '{"q1":"OPTION_TEST","q2":"OPTION_TEST","q3":"OPTION_TEST","q4":"OPTION_TEST","q5":"OPTION_TEST"}'::jsonb);
   if v_result <> '{"score":100,"best":100}'::jsonb then raise exception 'Incorrect perfect score'; end if;
-  v_result := public.submit_quiz('11111111-1111-4111-8111-111111111111', 'Essai',
+  if not exists (select 1 from public.get_leaderboard()
+    where first_name = 'Essai RPC 20261110' and best_score = 100 and attempts = 1) then
+    raise exception 'First play did not expose exactly one attempt';
+  end if;
+  v_result := public.submit_quiz('11111111-1111-4111-8111-111111111111', 'Essai RPC 20261110',
     '{"q1":"FAUX","q2":"FAUX","q3":"FAUX","q4":"FAUX","q5":"FAUX"}'::jsonb);
   if v_result <> '{"score":0,"best":100}'::jsonb then raise exception 'Best score decreased'; end if;
+  if not exists (select 1 from public.get_leaderboard()
+    where first_name = 'Essai RPC 20261110' and best_score = 100 and attempts = 2) then
+    raise exception 'A lower replay score did not increase the public attempt count';
+  end if;
+  select pg_catalog.count(*) into v_count from public.get_leaderboard() where first_name = 'Essai RPC 20261110';
+  if v_count <> 1 then raise exception 'A replay created duplicate leaderboard entries'; end if;
   v_result := public.get_my_best('11111111-1111-4111-8111-111111111111');
-  if v_result <> '{"first_name":"Essai","best_score":100}'::jsonb then raise exception 'Bad returning-player response'; end if;
+  if v_result <> '{"first_name":"Essai RPC 20261110","best_score":100}'::jsonb then raise exception 'Bad returning-player response'; end if;
   if public.get_my_best('22222222-2222-4222-8222-222222222222') is not null then raise exception 'Unknown player was returned'; end if;
+  perform public.submit_quiz('22222222-2222-4222-8222-222222222222', 'Essai RPC 20261110',
+    '{"q1":"OPTION_TEST","q2":"FAUX","q3":"FAUX","q4":"FAUX","q5":"FAUX"}'::jsonb);
+  select pg_catalog.count(*) into v_count from public.get_leaderboard() where first_name = 'Essai RPC 20261110';
+  if v_count <> 2 or not exists (select 1 from public.get_leaderboard()
+    where first_name = 'Essai RPC 20261110' and best_score = 20 and attempts = 1) then
+    raise exception 'Homonyms share scores or attempt counts';
+  end if;
   if public.get_manuella_content('incorrect') is not null then raise exception 'Wrong secret accepted'; end if;
   v_result := public.get_manuella_content(pg_catalog.repeat('A', 43));
   if v_result ->> 'text' <> 'MESSAGE_SYNTHETIQUE_DE_TEST' or v_result -> 'bestScorePercent' <> 'null'::jsonb then
@@ -83,12 +105,20 @@ begin
   end if;
   perform public.submit_manuella_quiz(pg_catalog.repeat('A', 43),
     '{"q1":"OPTION_TEST","q2":"OPTION_TEST","q3":"OPTION_TEST","q4":"OPTION_TEST","q5":"OPTION_TEST"}'::jsonb);
+  if not exists (select 1 from public.get_leaderboard()
+    where first_name = 'Manuella l''Anniversaireuse' and best_score = 100 and attempts = 1) then
+    raise exception 'Manuella first play attempt count is incorrect';
+  end if;
   perform public.submit_manuella_quiz(pg_catalog.repeat('A', 43),
-    '{"q1":"OPTION_TEST","q2":"OPTION_TEST","q3":"OPTION_TEST","q4":"OPTION_TEST","q5":"OPTION_TEST"}'::jsonb);
+    '{"q1":"FAUX","q2":"FAUX","q3":"FAUX","q4":"FAUX","q5":"FAUX"}'::jsonb);
+  if not exists (select 1 from public.get_leaderboard()
+    where first_name = 'Manuella l''Anniversaireuse' and best_score = 100 and attempts = 2) then
+    raise exception 'Manuella replay lost her best score or attempt count';
+  end if;
   select pg_catalog.count(*) into v_count from public.get_leaderboard() where first_name = 'Manuella l''Anniversaireuse';
   if v_count <> 1 then raise exception 'Manuella has duplicate leaderboard entries'; end if;
   perform public.post_message('11111111-1111-4111-8111-111111111111', 'Autre nom', '  Un   joli mot  ');
-  if not exists (select 1 from public.get_messages() where first_name = 'Essai' and body = 'Un joli mot') then
+  if not exists (select 1 from public.get_messages() where first_name = 'Essai RPC 20261110' and body = 'Un joli mot') then
     raise exception 'Message canonical name / whitespace normalization failed';
   end if;
   begin

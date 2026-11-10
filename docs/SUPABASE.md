@@ -40,6 +40,18 @@ Passer messages.hidden à true masque un mot. Les contrôles en base limitent le
 messages à trois par participante, espacés de trente secondes. Sans compte,
 l’identité par UUID de navigateur reste une limite assumée.
 
+Le classement affiche une seule ligne par participante et conserve son meilleur
+score. Le nombre de participations validées est compté en base : dès la deuxième,
+l’étiquette « A rejoué plusieurs fois » apparaît sous son prénom, même si son
+dernier score est moins bon. Les tentatives déjà enregistrées sont prises en compte.
+
+L’application garde l’UUID dans le localStorage et n’enregistre ni adresse IP ni
+adresse MAC pour identifier les participantes. Effacer les données du site,
+changer de navigateur ou utiliser « Ce n’est pas moi » permet de créer une nouvelle
+identité. Une IP peut être partagée ou changer ; le navigateur ne donne pas accès
+à l’adresse MAC. Une authentification serait nécessaire pour retrouver un même
+compte après effacement des données du navigateur.
+
 Pour des essais réels, utiliser une identité de test distincte et retirer seulement
 les données de cet essai avant diffusion. Ne pas effacer les participations réelles.
 Les fichiers SQL de tests utilisent une transaction avec ROLLBACK et peuvent

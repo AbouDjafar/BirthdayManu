@@ -1,7 +1,7 @@
 import questions from "./questions.json";
 
 export type QuizResult = { scorePercent: number; bestScorePercent: number };
-export type LeaderboardEntry = { firstName: string; bestScorePercent: number; updatedAt: string };
+export type LeaderboardEntry = { firstName: string; bestScorePercent: number; attempts: number; updatedAt: string };
 export type WallMessage = { firstName: string; body: string; createdAt: string };
 export type ManuellaContent = { text: string; photoUrl?: string; bestScorePercent: number | null };
 export type WallConnectionStatus = "connecting" | "live" | "polling" | "offline";

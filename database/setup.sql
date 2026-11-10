@@ -188,10 +188,13 @@ returns jsonb language sql stable security definer set search_path = '' as $$
     and not exists (select 1 from public.secret_access a where a.player_id = p.id);
 $$;
 
-create or replace function public.get_leaderboard()
-returns table (first_name text, best_score integer, updated_at timestamptz)
+-- PostgreSQL requires recreation when a table-returning RPC gains a column.
+-- The surrounding transaction keeps this change and its grants atomic.
+drop function if exists public.get_leaderboard();
+create function public.get_leaderboard()
+returns table (first_name text, best_score integer, updated_at timestamptz, attempts integer)
 language sql stable security definer set search_path = '' as $$
-  select p.first_name, s.best_score, s.updated_at
+  select p.first_name, s.best_score, s.updated_at, s.attempts
   from public.scores s join public.players p on p.id = s.player_id
   order by s.best_score desc, s.updated_at asc, p.first_name asc;
 $$;
