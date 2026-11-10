@@ -126,7 +126,7 @@ export function errorMessage(error: unknown): string {
   if (/RATE_LIMIT|30.second|trop.rapide/i.test(message)) return "Un tout petit instant : attends 30 secondes entre deux messages.";
   if (/MESSAGE_LIMIT|maximum.*3|trois.(messages|mots)/i.test(message)) return "Tu as déjà laissé tes trois petits mots. Merci pour tout cet amour !";
   if (/MESSAGE_BLOCKED|mot.interdit|Reformule ton mot/i.test(message)) return "Ce mot ne passe pas le filtre. Reformule ton message avec douceur.";
-  if (/RESERVED_NAME|pr.nom est r.serv./i.test(message)) return "Ce nom est réservé à Manuella. Utilise ton prénom.";
+  if (/RESERVED_NAME|pr.nom est r.serv./i.test(message)) return "Manuella, c'est moi ! Utilise ton propre prénom.";
   if (/NAME_INVALID|pr.nom/i.test(message)) return "Choisis un prénom entre 2 et 30 caractères.";
   if (/MESSAGE_INVALID|mot doit contenir/i.test(message)) return "Ton message doit contenir entre 1 et 280 caractères.";
   if (/QUIZ_NOT_CONFIGURED|BACKEND_NOT_CONFIGURED|quiz n.est pas encore configur./i.test(message)) return "Le quiz n’est pas encore configuré. Reviens dans un petit moment.";

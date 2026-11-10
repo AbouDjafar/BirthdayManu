@@ -62,8 +62,8 @@ export function WallScreen() {
         <button className="font-bold underline" onClick={() => void refresh()}>Réessayer le chargement du mur</button>
       </div>}
       <section className="mt-6 rounded-[1.75rem] border-[2.5px] border-ink bg-card p-5 shadow-sticker" aria-labelledby="lb">
-        <h2 id="lb" className="mb-3 text-xl font-bold">Les meilleures copines</h2>
-        {!board ? <p className="text-muted-foreground">{error ? "Classement indisponible." : "Chargement…"}</p> : board.length === 0 ? <p className="text-muted-foreground">Le premier score attend sa championne !</p> : (
+        <h2 id="lb" className="mb-3 text-xl font-bold">Le classement de mon fan club</h2>
+        {!board ? <p className="text-muted-foreground">{error ? "Classement indisponible." : "Chargement…"}</p> : board.length === 0 ? <p className="text-muted-foreground">La première place est libre. Je dis ça, je ne dis rien…</p> : (
           <ol className="space-y-2">
             {board.map((person, i) => (
               <li key={`${i}-${person.firstName}-${person.updatedAt}`} className="flex animate-slide items-center gap-3 rounded-2xl bg-muted px-4 py-3">
@@ -76,8 +76,8 @@ export function WallScreen() {
         )}
       </section>
       <section className="mt-8" aria-labelledby="mots">
-        <h2 id="mots" className="mb-4 text-xl font-bold">Les petits mots</h2>
-        {!msgs ? <p className="text-muted-foreground">{error ? "Messages indisponibles." : "Chargement…"}</p> : msgs.length === 0 ? <p className="text-muted-foreground">Le mur attend ses premiers mots doux</p> : (
+        <h2 id="mots" className="mb-4 text-xl font-bold">Vos petits mots, mes grands sourires</h2>
+        {!msgs ? <p className="text-muted-foreground">{error ? "Messages indisponibles." : "Chargement…"}</p> : msgs.length === 0 ? <p className="text-muted-foreground">Je fais semblant d'être patiente… Qui m'écrit le premier petit mot ?</p> : (
           <ul className="grid gap-4 sm:grid-cols-2">
             {msgs.map((message, i) => (
               <li key={`${message.createdAt}-${i}`} className={tilt[i % 4]}>

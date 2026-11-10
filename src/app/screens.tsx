@@ -49,13 +49,16 @@ export function HomeScreen() {
           <span className="absolute -right-6 -top-3 rotate-12 rounded-full border-2 border-ink bg-gold px-3 py-1 text-sm font-extrabold text-ink shadow-sticker">12 déc.</span>
         </div>
         <div className="animate-slide">
-          <p className="font-hand text-3xl text-primary">C'est mon anniversaire</p>
-          <h1 className="text-6xl font-black italic leading-none text-ink sm:text-7xl">Manuella</h1>
+          <h1 className="font-black italic text-ink">
+            <span className="block font-hand text-3xl font-medium not-italic text-primary">C'est mon anniversaire,</span>{" "}
+            <span className="mb-1 mt-1 block text-lg font-bold not-italic text-muted-foreground">l'anniversaire de votre star</span>{" "}
+            <span className="block text-6xl leading-none sm:text-7xl">Manuella</span>
+          </h1>
         </div>
         {firstName ? (
           <div className="space-y-4">
-            <p className="text-lg">Re bonjour <strong>{firstName}</strong></p>
-            {shownBest !== null && <p className="text-muted-foreground">Ton meilleur score : <strong className="text-primary">{shownBest} %</strong>. Tu peux faire mieux ?</p>}
+            <p className="text-lg">{manuella ? "La star est dans la place : " : "Te revoilà, "}<strong>{firstName}</strong> !</p>
+            {shownBest !== null && <p className="max-w-sm text-muted-foreground">Ton meilleur score : <strong className="text-primary">{shownBest} %</strong>. {shownBest === 100 ? "Un sans faute ! Même moi, je suis impressionnée." : "Alors, on tente de battre ton record ?"}</p>}
             {error && <div className="space-y-2"><p role="alert">{error}</p><button className="underline" onClick={() => setAttempt((n) => n + 1)}>Réessayer le chargement du score</button></div>}
             <button className="btn btn-primary w-full max-w-xs text-lg" onClick={() => go("/quiz")}>Rejouer</button>
             {!manuella && <button className="block w-full text-sm text-muted-foreground underline" onClick={() => setOpen(true)}>Ce n'est pas moi</button>}
@@ -63,7 +66,7 @@ export function HomeScreen() {
           </div>
         ) : (
           <div className="space-y-4">
-            <p className="max-w-sm text-lg text-muted-foreground">5 questions pour prouver que tu me connais <em>vraiment</em>. Une surprise t'attend à la fin.</p>
+            <p className="max-w-sm text-lg text-muted-foreground">5 questions pour voir si tu me connais <em>vraiment</em>. Révise tes souvenirs, pas Wikipédia. Je te réserve une surprise à la fin.</p>
             <button className="btn btn-primary w-full max-w-xs text-lg" onClick={() => setOpen(true)}>Je relève le défi</button>
           </div>
         )}
@@ -72,7 +75,7 @@ export function HomeScreen() {
         <Modal label="Ton prénom" onClose={() => setOpen(false)}>
           <form className="space-y-5 text-center" onSubmit={(event) => { event.preventDefault(); if (!valid) return; setName(name.trim()); go("/quiz"); }}>
             <Avatar n="thinking" size={96} className="mx-auto animate-pop" alt="" />
-            <h2 className="text-3xl font-bold">Et toi, tu es… ?</h2>
+            <h2 className="text-3xl font-bold">À qui ai-je l'honneur ?</h2>
             <label htmlFor="firstName" className="sr-only">Ton prénom</label>
             <input id="firstName" data-autofocus value={name} maxLength={30} autoComplete="given-name" onChange={(event) => setNameInput(event.target.value)} placeholder="Ton prénom"
               className="h-14 w-full rounded-2xl border-[2.5px] border-ink bg-background px-4 text-center text-xl font-bold outline-none focus:border-primary" />
@@ -85,7 +88,7 @@ export function HomeScreen() {
   );
 }
 
-const REACTIONS = ["Hmm, intéressant…", "Je te regarde…", "Ok ok, je note !", "Tu vises le score parfait ?", "Dernière ligne droite !"];
+const REACTIONS = ["Je t'écoute… sans souffler !", "Voyons si tu suis mes aventures…", "Là, je reconnais les vraies !", "Attention, dossier d'enfance !", "Dernière question, je retiens mon souffle !"];
 
 export function QuizScreen() {
   const { player, manuella, setResult } = useApp();
@@ -226,7 +229,7 @@ export function ResultScreen() {
           </div>
           {result.bestScorePercent > result.scorePercent && <p className="text-sm">Ton record reste <strong>{result.bestScorePercent} %</strong>.</p>}
           <ShareResult targetRef={resultCardRef} firstName={firstName} scorePercent={result.scorePercent} ready={ready} />
-          <button className="btn btn-gold w-full text-lg" onClick={() => go("/surprise")}>Découvrir ma surprise</button>
+          <button className="btn btn-gold w-full text-lg" onClick={() => go("/surprise")}>Découvrir la surprise</button>
         </div>
       </Modal>
     </>
@@ -248,8 +251,8 @@ export function SurpriseScreen() {
             <img src={asset("assets/surprise.webp")} alt="Photo surprise de Manuella" className={`h-full w-full object-contain ${revealed ? "animate-unblur" : "scale-110 blur-2xl saturate-50"}`} />
             {!revealed && <span className="absolute inset-0 grid place-items-center bg-ink/30"><span className="rounded-full border-2 border-ink bg-card px-5 py-3 font-extrabold text-ink shadow-sticker animate-wiggle">Touche pour dévoiler</span></span>}
           </button>
-          {revealed && <p className="animate-slide font-hand text-3xl leading-tight text-primary">Merci d'être là pour moi. Le gâteau, c'est le 12. Ne sois pas en retard !</p>}
-          <button className="btn btn-primary w-full" disabled={!revealed} onClick={() => go("/mot")}>Lui laisser un mot</button>
+          {revealed && <p className="animate-slide font-hand text-3xl leading-tight text-primary">Merci d'être là pour moi. Tu as survécu à mon quiz : tu mérites bien cette petite exclusivité !</p>}
+          <button className="btn btn-primary w-full" disabled={!revealed} onClick={() => go("/mot")}>Me laisser un mot</button>
         </div>
       </Modal>
     </>
@@ -284,7 +287,7 @@ export function NoteScreen() {
         }}>
           <div className="flex items-center gap-3">
             <Avatar n="note" size={64} className="animate-pop" alt="" />
-            <h2 className="text-2xl font-black leading-tight">Un mot doux pour Manuella</h2>
+            <h2 className="text-2xl font-black leading-tight">À ton tour de me faire sourire</h2>
           </div>
           <label htmlFor="note" className="text-sm font-bold">Ton message (il sera visible sur le mur)</label>
           <textarea id="note" data-autofocus rows={5} maxLength={280} value={body} disabled={sending} onChange={(event) => setBody(event.target.value)}

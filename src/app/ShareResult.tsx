@@ -73,7 +73,7 @@ export function ShareResult({ targetRef, firstName, scorePercent, ready }: Props
         <button type="button" className="min-h-11 underline disabled:opacity-50" disabled={!file || preparing} onClick={download}>Télécharger la carte</button>
         <button type="button" className="min-h-11 underline" onClick={() => void copy()}>Copier le lien</button>
       </div>
-      {preparing && <p role="status" className="text-sm text-muted-foreground">Ton portrait et ton score se préparent pour le partage.</p>}
+      {preparing && <p role="status" className="text-sm text-muted-foreground">Ta carte de résultat se prépare pour le partage.</p>}
       {captureError && <div className="space-y-2 text-sm">
         <p role="status">La carte n’a pas pu être créée. Tu peux partager le message et le lien du quiz.</p>
         <button type="button" className="min-h-11 underline" onClick={() => setAttempt((value) => value + 1)}>Réessayer la création de la carte</button>

@@ -90,7 +90,7 @@ describe("parcours de l’application", () => {
     await answerQuiz();
     expect(await screen.findByRole("alert")).toHaveTextContent("Réseau indisponible");
     fireEvent.click(screen.getByRole("button", { name: "Réessayer l’envoi" }));
-    expect(await screen.findByRole("button", { name: /Découvrir ma surprise/ })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /Découvrir la surprise/ })).toBeInTheDocument();
     const resultCard = screen.getByLabelText("Carte de résultat");
     expect(within(resultCard).getByText("Alice A.")).toBeInTheDocument();
     expect(within(resultCard).getByText("60%")).toBeInTheDocument();
@@ -101,9 +101,9 @@ describe("parcours de l’application", () => {
     expect(screen.getByTestId("share-result")).toHaveAttribute("data-ready", "true");
     expect(api.submitQuiz).toHaveBeenCalledTimes(2);
     expect(vi.mocked(api.submitQuiz).mock.calls[1]).toEqual(vi.mocked(api.submitQuiz).mock.calls[0]);
-    fireEvent.click(screen.getByRole("button", { name: /Découvrir ma surprise/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Découvrir la surprise/ }));
     fireEvent.click(await screen.findByRole("button", { name: "Touche pour dévoiler la photo" }));
-    fireEvent.click(screen.getByRole("button", { name: /Lui laisser un mot/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Me laisser un mot/ }));
     fireEvent.change(await screen.findByLabelText(/Ton message/), { target: { value: "Joyeux anniversaire !" } });
     fireEvent.click(screen.getByRole("button", { name: "Envoyer" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Attends 30 secondes");
@@ -130,7 +130,7 @@ describe("parcours de l’application", () => {
     navigate("#/quiz");
     render(<App />);
     await answerQuiz();
-    expect(await screen.findByRole("button", { name: /Découvrir ma surprise/ })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /Découvrir la surprise/ })).toBeInTheDocument();
     expect(api.submitManuellaQuiz).toHaveBeenCalledWith("secret-test", { q1: 0, q2: 0, q3: 0, q4: 0, q5: 0 });
     expect(api.submitQuiz).not.toHaveBeenCalled();
     expect(screen.getByTestId("share-result")).toHaveAttribute("data-first-name", "Manuella l'Anniversaireuse");
@@ -218,7 +218,7 @@ describe("parcours de l’application", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("Réseau indisponible");
     expect(screen.getByRole("status")).toHaveTextContent("connexion interrompue");
     fireEvent.click(screen.getByRole("button", { name: "Réessayer le chargement du mur" }));
-    expect(await screen.findByText(/Le mur attend ses premiers mots doux/)).toBeInTheDocument();
+    expect(await screen.findByText(/Qui m'écrit le premier petit mot/)).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 });

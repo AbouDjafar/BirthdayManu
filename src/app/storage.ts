@@ -70,8 +70,8 @@ export const avatar = (n: number | string) => {
 export function scoreTier(s: number) {
   const score = Number.isFinite(s) ? Math.max(0, Math.min(100, s)) : 0;
   const portrait = `score-${Math.round(score / 20) * 20}`;
-  if (score >= 90) return { title: "Meilleure amie officielle", text: "Certifié, tamponné, encadré. Tu me connais par cœur.", avatar: portrait, confetti: 220 };
-  if (score >= 70) return { title: "Trop fière de toi !", text: "Tu fais clairement partie de mon cercle très fermé.", avatar: portrait, confetti: 120 };
-  if (score >= 40) return { title: "Pas mal du tout !", text: "Encore quelques soirées ensemble et tu me connaîtras par cœur.", avatar: portrait, confetti: 40 };
-  return { title: "Euh… tu es sûre ?", text: "Je fais les gros yeux. Un petit café ensemble s'impose !", avatar: portrait, confetti: 0 };
+  if (score >= 90) return { title: "Meilleure amie officielle", text: "Certifié, tamponné, encadré. Tu me connais par cœur… je vais finir par te demander où j'ai posé mes lunettes.", avatar: portrait, confetti: 220 };
+  if (score >= 70) return { title: "Trop fière de toi !", text: "Tu fais partie de mon cercle très privé. Mes derniers petits secrets ? Je les garde pour la saison suivante.", avatar: portrait, confetti: 120 };
+  if (score >= 40) return { title: "Pas mal du tout !", text: "On a de bonnes bases. Je prescris quelques confidences et une soirée Netflix ensemble.", avatar: portrait, confetti: 40 };
+  return { title: "Euh… tu es sûre ?", text: "Je fais les gros yeux, mais je t'aime quand même. On révise autour d'un bon plat ?", avatar: portrait, confetti: 0 };
 }
