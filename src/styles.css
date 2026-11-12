@@ -2,6 +2,37 @@
 @source "../src";
 @import "tw-animate-css";
 
+/* Local Latin subsets remove third-party font handshakes. Text remains visible
+ * immediately, including when a slow connection has not delivered fonts yet. */
+@font-face {
+  font-family: "Nunito";
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  src: url("/assets/fonts/nunito-latin.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Fraunces";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/assets/fonts/fraunces-latin.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Fraunces";
+  font-style: italic;
+  font-weight: 700 900;
+  font-display: swap;
+  src: url("/assets/fonts/fraunces-italic-latin.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Caveat";
+  font-style: normal;
+  font-weight: 500 700;
+  font-display: swap;
+  src: url("/assets/fonts/caveat-latin.woff2") format("woff2");
+}
+
 /* Scroll stays available by touch, mouse wheel and keyboard inside rounded modals. */
 .modal-scroll { scrollbar-width: none; -ms-overflow-style: none; overscroll-behavior: contain; }
 .modal-scroll::-webkit-scrollbar { display: none; width: 0; height: 0; }

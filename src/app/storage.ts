@@ -5,9 +5,12 @@ export type Player = { playerId: string; firstName: string };
 
 let memory: Player | null = null;
 let sessionMemory: string | null = null;
+let playerWriteFailed = false;
+let sessionWriteFailed = false;
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export function loadPlayer(): Player | null {
+  if (playerWriteFailed) return memory;
   let raw: string | null;
   try { raw = window.localStorage.getItem(KEY); } catch { return memory; }
   if (!raw) return null;
@@ -38,11 +41,13 @@ export function savePlayer(firstName: string, newIdentity = false): Player {
   if (name.length < 2 || name.length > 30) throw new Error("Le prénom doit contenir entre 2 et 30 caractères.");
   const p = { playerId: (!newIdentity && loadPlayer()?.playerId) || newId(), firstName: name };
   memory = p;
-  try { window.localStorage.setItem(KEY, JSON.stringify(p)); } catch { /* Keep this visit usable. */ }
+  try { window.localStorage.setItem(KEY, JSON.stringify(p)); playerWriteFailed = false; }
+  catch { playerWriteFailed = true; /* Keep this visit usable. */ }
   return p;
 }
 
 export function loadManuellaCode(): string | null {
+  if (sessionWriteFailed) return sessionMemory;
   try { return window.sessionStorage.getItem(MANUELLA_KEY) || null; } catch { return sessionMemory; }
 }
 
@@ -51,7 +56,8 @@ export function saveManuellaCode(code: string | null) {
   try {
     if (code) window.sessionStorage.setItem(MANUELLA_KEY, code);
     else window.sessionStorage.removeItem(MANUELLA_KEY);
-  } catch { /* Keep the secret in memory only when session storage is unavailable. */ }
+    sessionWriteFailed = false;
+  } catch { sessionWriteFailed = true; /* Keep the secret in memory only when session storage is unavailable. */ }
 }
 
 export const asset = (p: string) => `${import.meta.env.BASE_URL ?? "/"}${p.replace(/^\//, "")}`;
@@ -62,9 +68,18 @@ const portraitRoles: Record<string, string> = {
   "score-60": "etonnee", "score-80": "bisous", "score-100": "emue",
 };
 const legacyPortraits = ["suspicieuse", "bisous", "cogite", "emue", "combattive", "somnole"];
-export const avatar = (n: number | string) => {
-  const portrait = typeof n === "number" ? legacyPortraits[n - 1] ?? "bisous" : portraitRoles[n] ?? n;
-  return asset(`assets/portraits/${portrait}.webp`);
+const portraitName = (n: number | string) =>
+  typeof n === "number" ? legacyPortraits[n - 1] ?? "bisous" : portraitRoles[n] ?? n;
+// Keep a sharp, modest-size source for exported cards; inline avatars select a
+// smaller rendition using their CSS size and the display's pixel density.
+export const avatar = (n: number | string) => asset(`assets/portraits/${portraitName(n)}.webp`);
+export const avatarSrcSet = (n: number | string) => {
+  const portrait = portraitName(n);
+  return [
+    `${asset(`assets/portraits/${portrait}-160.webp`)} 160w`,
+    `${asset(`assets/portraits/${portrait}-320.webp`)} 320w`,
+    `${avatar(n)} ${portrait === "akah" ? 394 : 480}w`,
+  ].join(", ");
 };
 
 export function scoreTier(s: number) {

@@ -5,6 +5,7 @@ import { App } from "../app/App";
 import questions from "../app/questions.json";
 import { loadPlayer, saveManuellaCode, savePlayer } from "../app/storage";
 import { SIGNATURE } from "../app/ui";
+import { beginQuiz, readQuiz, saveAnswers, saveQuizResult } from "../app/quizState";
 
 vi.mock("../app/api", () => ({
   errorMessage: (error: unknown) => error instanceof Error ? error.message : "Erreur de connexion",
@@ -81,7 +82,8 @@ describe("parcours de l’application", () => {
     render(<App />);
     fireEvent.click(screen.getByRole("button", { name: /Je relève le défi/ }));
     const dialog = screen.getByRole("dialog", { name: "Ton prénom" });
-    expect(within(dialog).getByText(SIGNATURE)).toBeInTheDocument();
+    expect(within(dialog).queryByText(SIGNATURE)).not.toBeInTheDocument();
+    expect(screen.getByText(SIGNATURE)).toBeInTheDocument();
     expect(screen.queryByText(/Mode démo/)).not.toBeInTheDocument();
     fireEvent.change(screen.getByRole("textbox", { name: "Ton prénom" }), { target: { value: "A" } });
     expect(screen.getByRole("button", { name: "C'est parti" })).toBeDisabled();
@@ -131,7 +133,7 @@ describe("parcours de l’application", () => {
     render(<App />);
     await answerQuiz();
     expect(await screen.findByRole("button", { name: /Découvrir la surprise/ })).toBeInTheDocument();
-    expect(api.submitManuellaQuiz).toHaveBeenCalledWith("secret-test", { q1: 0, q2: 0, q3: 0, q4: 0, q5: 0 });
+    expect(api.submitManuellaQuiz).toHaveBeenCalledWith("secret-test", { q1: 0, q2: 0, q3: 0, q4: 0, q5: 0 }, expect.any(String));
     expect(api.submitQuiz).not.toHaveBeenCalled();
     expect(screen.getByTestId("share-result")).toHaveAttribute("data-first-name", "Manuella l'Anniversaireuse");
     expect(loadPlayer()).toEqual(friend);
@@ -187,8 +189,8 @@ describe("parcours de l’application", () => {
     expect(screen.getAllByText("Alice")).toHaveLength(2);
     const ranking = screen.getByRole("region", { name: "Le classement de mon fan club" });
     const rows = within(ranking).getAllByRole("listitem");
-    expect(within(rows[0]!).queryByText("A rejoué plusieurs fois")).not.toBeInTheDocument();
-    expect(within(rows[1]!).getByText("A rejoué plusieurs fois")).toHaveAttribute("title", "2 tentatives");
+    expect(within(rows[0]!).queryByText(/tentatives/)).not.toBeInTheDocument();
+    expect(within(rows[1]!).getByText("2 tentatives")).toBeInTheDocument();
     expect(within(rows[0]!).getByText("Alice")).toBeInTheDocument();
     expect(within(rows[1]!).getByText("Alice")).toBeInTheDocument();
     fireEvent.click(await screen.findByRole("button", { name: /Un mot à modérer/ }));
@@ -203,12 +205,12 @@ describe("parcours de l’application", () => {
   });
 
   it("annule la transition d’une question après une navigation", async () => {
-    savePlayer("Alice");
+    const player = savePlayer("Alice");
+    const scope = { owner: player.playerId, private: false };
+    const pending = beginQuiz(scope);
+    saveAnswers(scope, { ...pending, answers: { q1: 0, q2: 0, q3: 0, q4: 0 } });
     navigate("#/quiz");
     render(<App />);
-    for (const question of questions.slice(0, -1)) {
-      fireEvent.click(await screen.findByRole("button", { name: `A. ${question.options[0]}` }));
-    }
     fireEvent.click(await screen.findByRole("button", { name: `A. ${questions.at(-1)!.options[0]}` }));
     navigate("#/mur");
     await screen.findByRole("heading", { name: "Le mur" });
@@ -226,5 +228,61 @@ describe("parcours de l’application", () => {
     fireEvent.click(screen.getByRole("button", { name: "Réessayer le chargement du mur" }));
     expect(await screen.findByText(/Qui m'écrit le premier petit mot/)).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("retrouve le score après rechargement sans aucun appel réseau", () => {
+    const player = savePlayer("Alice");
+    const scope = { owner: player.playerId, private: false };
+    const pending = beginQuiz(scope);
+    saveQuizResult(scope, { scorePercent: 60, bestScorePercent: 80 }, pending.attemptId);
+    navigate("#/resultat");
+    render(<App />);
+    expect(screen.getByText("60%")).toBeInTheDocument();
+    expect(screen.getByTestId("share-result")).toHaveAttribute("data-ready", "true");
+    expect(api.submitQuiz).not.toHaveBeenCalled();
+    expect(api.getMyBest).not.toHaveBeenCalled();
+  });
+
+  it("reprend une soumission interrompue avec le même identifiant après rechargement", async () => {
+    const player = savePlayer("Alice");
+    const scope = { owner: player.playerId, private: false };
+    const pending = beginQuiz(scope);
+    const answers = { q1: 0, q2: 0, q3: 0, q4: 0, q5: 0 };
+    saveAnswers(scope, { ...pending, answers });
+    navigate("#/quiz");
+    render(<App />);
+    expect(await screen.findByText("60%")).toBeInTheDocument();
+    expect(api.submitQuiz).toHaveBeenCalledWith(player.playerId, "Alice", answers, pending.attemptId);
+    expect(readQuiz(scope).pending).toBeNull();
+    expect(readQuiz(scope).result).toEqual({ scorePercent: 60, bestScorePercent: 80 });
+  });
+
+  it("reprend automatiquement les réponses sauvegardées au retour du réseau", async () => {
+    const player = savePlayer("Alice");
+    const scope = { owner: player.playerId, private: false };
+    const pending = beginQuiz(scope);
+    saveAnswers(scope, { ...pending, answers: { q1: 0, q2: 0, q3: 0, q4: 0, q5: 0 } });
+    vi.mocked(api.submitQuiz).mockRejectedValueOnce(Object.assign(new Error("Réseau indisponible"), { retryable: true }));
+    navigate("#/quiz");
+    render(<App />);
+    expect(await screen.findByRole("alert")).toHaveTextContent("Réseau indisponible");
+    fireEvent(window, new Event("online"));
+    expect(await screen.findByText("60%")).toBeInTheDocument();
+    expect(vi.mocked(api.submitQuiz).mock.calls[0]).toEqual(vi.mocked(api.submitQuiz).mock.calls[1]);
+  });
+
+  it("permet de repartir avec un nouvel identifiant après un conflit de réponses entre onglets", async () => {
+    const player = savePlayer("Alice");
+    const scope = { owner: player.playerId, private: false };
+    const pending = beginQuiz(scope);
+    saveAnswers(scope, { ...pending, answers: { q1: 0, q2: 0, q3: 0, q4: 0, q5: 0 } });
+    vi.mocked(api.submitQuiz).mockRejectedValueOnce(new Error("Cette partie a déjà été envoyée avec d’autres réponses."));
+    navigate("#/quiz");
+    render(<App />);
+    fireEvent.click(await screen.findByRole("button", { name: "Recommencer avec une nouvelle partie" }));
+    expect(await screen.findByRole("heading", { name: questions[0]!.text })).toBeInTheDocument();
+    expect(readQuiz(scope).pending?.attemptId).not.toBe(pending.attemptId);
+    expect(readQuiz(scope).pending?.answers).toEqual({});
+    expect(api.submitQuiz).toHaveBeenCalledTimes(1);
   });
 });

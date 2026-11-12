@@ -22,16 +22,32 @@ export function WallScreen() {
   const [open, setOpen] = useState<WallMessage | null>(null);
   const alive = useRef(false);
   const generation = useRef(0);
+  const inFlight = useRef(false);
+  const refreshQueued = useRef(false);
 
   const refresh = useCallback(async () => {
-    const current = ++generation.current;
+    if (!alive.current) return;
+    // Keep one request active and coalesce invalidations. Otherwise, a poll can
+    // invalidate every response on a connection slower than the polling period.
+    if (inFlight.current) { refreshQueued.current = true; return; }
+    inFlight.current = true;
+    const current = generation.current;
     try {
-      const [ranking, messages] = await Promise.all([getLeaderboard(), getMessages()]);
+      // Await both RPCs even if one fails, so a still-running companion request
+      // never overlaps the next queued batch.
+      const [ranking, messages] = await Promise.allSettled([getLeaderboard(), getMessages()]);
       if (!alive.current || current !== generation.current) return;
-      setBoard(ranking); setMsgs(messages); setError("");
-      setOpen((previous) => previous && messages.some((message) => sameMessage(message, previous)) ? previous : null);
+      if (ranking.status === "rejected") throw ranking.reason;
+      if (messages.status === "rejected") throw messages.reason;
+      setBoard(ranking.value); setMsgs(messages.value); setError("");
+      setOpen((previous) => previous && messages.value.some((message) => sameMessage(message, previous)) ? previous : null);
     } catch (reason) {
       if (alive.current && current === generation.current) setError(errorMessage(reason));
+    } finally {
+      inFlight.current = false;
+      const queued = refreshQueued.current;
+      refreshQueued.current = false;
+      if (queued && alive.current) void refresh();
     }
   }, []);
 
@@ -41,7 +57,7 @@ export function WallScreen() {
     const unsubscribe = subscribeToWall(() => { void refresh(); }, (next) => {
       if (alive.current && next in statusLabels) setStatus(next as Status);
     });
-    return () => { alive.current = false; generation.current++; unsubscribe(); };
+    return () => { alive.current = false; generation.current++; refreshQueued.current = false; unsubscribe(); };
   }, [refresh]);
 
   return (
@@ -51,7 +67,7 @@ export function WallScreen() {
         <button className="btn btn-primary min-h-11 px-4 text-sm" onClick={() => go("/quiz")}>Jouer</button>
       </header>
       <div className="mt-6 flex items-end gap-3">
-        <Avatar n="wall" size={80} className="animate-float" alt="" />
+        <Avatar n="wall" size={80} className="animate-float" alt="" priority />
         <div>
           <h1 className="text-4xl font-black italic">Le mur</h1>
           <p className="flex items-center gap-2 text-sm text-muted-foreground" role="status"><span className={`h-2 w-2 rounded-full ${error || status === "offline" ? "bg-muted-foreground" : "animate-pulse bg-primary"}`} />{statusLabels[error ? "offline" : status]}</p>
@@ -64,13 +80,13 @@ export function WallScreen() {
       <section className="mt-6 rounded-[1.75rem] border-[2.5px] border-ink bg-card p-5 shadow-sticker" aria-labelledby="lb">
         <h2 id="lb" className="mb-3 text-xl font-bold">Le classement de mon fan club</h2>
         {!board ? <p className="text-muted-foreground">{error ? "Classement indisponible." : "Chargement…"}</p> : board.length === 0 ? <p className="text-muted-foreground">La première place est libre. Je dis ça, je ne dis rien…</p> : (
-          <ol className="space-y-2">
+          <ol className="space-y-4 pt-2">
             {board.map((person, i) => (
-              <li key={`${i}-${person.firstName}-${person.updatedAt}`} className="flex animate-slide items-center gap-3 rounded-2xl bg-muted px-4 py-3">
+              <li key={`${i}-${person.firstName}-${person.updatedAt}`} className={`relative flex animate-slide items-center gap-3 rounded-2xl border border-ink/15 bg-muted px-4 pb-3 ${person.attempts > 1 ? "pt-5" : "pt-3"}`}>
+                {person.attempts > 1 && <span className="absolute right-3 top-0 -translate-y-1/2 rounded-full border-2 border-card bg-[#a92261] px-2.5 py-0.5 text-xs font-extrabold leading-4 text-white shadow-sm">{person.attempts} tentatives</span>}
                 <span className="w-7 text-center text-lg font-black">{i + 1}</span>
                 <div className="min-w-0 flex-1">
                   <span className="block break-words font-bold">{person.firstName}</span>
-                  {person.attempts > 1 && <span title={`${person.attempts} tentatives`} className="mt-1 inline-block max-w-full rounded-xl border border-primary/20 bg-primary/10 px-2 py-0.5 text-xs font-semibold leading-4 text-primary">A rejoué plusieurs fois</span>}
                 </div>
                 <span className="shrink-0 font-display text-xl font-black italic text-primary">{person.bestScorePercent}%</span>
               </li>

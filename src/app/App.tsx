@@ -5,6 +5,7 @@ import { HomeScreen, QuizScreen, ResultScreen, SurpriseScreen, NoteScreen } from
 import { WallScreen } from "./wall";
 import { ManuellaScreen } from "./manuella";
 import { SignatureFooter, Sparkles } from "./ui";
+import { readQuiz } from "./quizState";
 
 const ROUTES = ["/", "/quiz", "/resultat", "/surprise", "/mot", "/mur"];
 export function go(path: string) { window.location.hash = `#${path}`; }
@@ -15,6 +16,12 @@ function privateCode(path: string): string | null {
   try { return decodeURIComponent(match[1] ?? "") || null; } catch { return null; }
 }
 type Result = { scorePercent: number; bestScorePercent: number };
+function savedResult() {
+  const code = loadManuellaCode();
+  const player = loadPlayer();
+  const scope = code ? { owner: code, private: true } : player ? { owner: player.playerId, private: false } : null;
+  return scope ? readQuiz(scope).result : null;
+}
 type ManuellaSession = { code: string; bestScorePercent: number | null };
 type Ctx = {
   player: Player | null;
@@ -31,9 +38,13 @@ export const useApp = () => useContext(AppCtx);
 export function App() {
   const [path, setPath] = useState(readHash);
   const [player, setPlayer] = useState<Player | null>(loadPlayer);
-  const [result, setResult] = useState<Result | null>(null);
-  const [manuella, setManuella] = useState<ManuellaSession | null>(null);
-  const [restoreCode, setRestoreCode] = useState(() => privateCode(readHash()) ? null : loadManuellaCode());
+  const [result, setResult] = useState<Result | null>(savedResult);
+  const [manuella, setManuella] = useState<ManuellaSession | null>(() => {
+    const code = loadManuellaCode();
+    const cached = savedResult();
+    return code && cached && readHash() === "/resultat" ? { code, bestScorePercent: cached.bestScorePercent } : null;
+  });
+  const [restoreCode, setRestoreCode] = useState(() => privateCode(readHash()) || (readHash() === "/resultat" && savedResult()) ? null : loadManuellaCode());
   const [restoreError, setRestoreError] = useState("");
   const [restoreAttempt, setRestoreAttempt] = useState(0);
 
@@ -46,10 +57,12 @@ export function App() {
   const activateManuella = useCallback((code: string, best: number | null) => {
     saveManuellaCode(code);
     setManuella({ code, bestScorePercent: best });
-    setResult(null);
+    setResult(readQuiz({ owner: code, private: true }).result);
   }, []);
   const leaveManuella = useCallback(() => {
-    saveManuellaCode(null); setManuella(null); setRestoreCode(null); setResult(null);
+    saveManuellaCode(null); setManuella(null); setRestoreCode(null);
+    const friend = loadPlayer();
+    setResult(friend ? readQuiz({ owner: friend.playerId, private: false }).result : null);
   }, []);
   const setName = useCallback((name: string) => {
     const p = savePlayer(name, true); setPlayer(p); setResult(null); return p;

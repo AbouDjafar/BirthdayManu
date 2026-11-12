@@ -1,29 +1,59 @@
-import { createClient, type SupabaseClient, type RealtimeChannel } from "@supabase/supabase-js";
+import type { SupabaseClient, RealtimeChannel } from "@supabase/supabase-js";
 import { answerTexts, normalizeBody, normalizeName, validatePlayerId, type LeaderboardEntry, type ManuellaContent, type QuizResult, type WallConnectionStatus, type WallMessage } from "./contracts";
 export type { LeaderboardEntry, ManuellaContent, QuizResult, WallConnectionStatus, WallMessage } from "./contracts";
 
 let client: SupabaseClient | undefined;
+let clientPromise: Promise<SupabaseClient> | undefined;
 
-function getClient() {
-  if (!client) {
+async function getClient(): Promise<SupabaseClient> {
+  if (client) return Promise.resolve(client);
+  if (!clientPromise) {
     const url = import.meta.env.VITE_SUPABASE_URL;
     const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
     if (!url || !key?.startsWith("sb_publishable_")) throw new Error("BACKEND_NOT_CONFIGURED");
-    client = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } });
+    clientPromise = import("@supabase/supabase-js").then(({ createClient }) => {
+      client = createClient(url, key, {
+        auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+        global: { fetch: timedFetch },
+      });
+      return client;
+    }).catch((reason) => { clientPromise = undefined; throw retryable(reason); });
   }
-  return client;
+  return clientPromise;
+}
+
+function retryable(reason: unknown): Error {
+  const error = reason instanceof Error ? reason : new Error(String(reason));
+  return Object.assign(error, { retryable: true });
+}
+
+/** Bound stalled requests; a quiz retry reuses its saved attempt ID. */
+async function timedFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const controller = new AbortController();
+  const external = init?.signal;
+  const abort = () => controller.abort();
+  if (external?.aborted) controller.abort();
+  else external?.addEventListener("abort", abort, { once: true });
+  const timeout = setTimeout(abort, 45_000);
+  try { return await fetch(input, { ...init, signal: controller.signal }); }
+  catch (reason) { throw retryable(reason); }
+  finally { clearTimeout(timeout); external?.removeEventListener("abort", abort); }
 }
 
 async function rpc<T>(name: string, parameters?: Record<string, unknown>): Promise<T> {
-  const { data, error } = await getClient().rpc(name, parameters);
-  if (error) throw new Error(error.message);
+  const { data, error, status } = await (await getClient()).rpc(name, parameters);
+  if (error) {
+    const failure = new Error(error.message);
+    if (!status || status >= 500 || status === 408 || status === 429) throw retryable(failure);
+    throw failure;
+  }
   return data as T;
 }
 
 async function rpcList<T>(name: string): Promise<T[]> {
   const rows: T[] = [];
   for (;;) {
-    const { data, error, count } = await getClient().rpc(name, undefined, { count: "exact" }).range(rows.length, rows.length + 499);
+    const { data, error, count } = await (await getClient()).rpc(name, undefined, { count: "exact" }).range(rows.length, rows.length + 499);
     if (error) throw new Error(error.message);
     const page = data as T[] | null;
     if (!page?.length) break;
@@ -35,9 +65,13 @@ async function rpcList<T>(name: string): Promise<T[]> {
 
 const result = (value: { score: number; best: number }): QuizResult => ({ scorePercent: value.score, bestScorePercent: value.best });
 
-export async function submitQuiz(playerId: string, firstName: string, answers: Record<string, number>): Promise<QuizResult> {
+export async function submitQuiz(playerId: string, firstName: string, answers: Record<string, number>, attemptId?: string): Promise<QuizResult> {
   validatePlayerId(playerId);
-  return result(await rpc("submit_quiz", { p_player_id: playerId, p_first_name: normalizeName(firstName), p_answers: answerTexts(answers) }));
+  if (attemptId) validatePlayerId(attemptId);
+  return result(await rpc(attemptId ? "submit_quiz_once" : "submit_quiz", {
+    p_player_id: playerId, p_first_name: normalizeName(firstName), p_answers: answerTexts(answers),
+    ...(attemptId ? { p_attempt_id: attemptId } : {}),
+  }));
 }
 
 export async function getMyBest(playerId: string) {
@@ -67,8 +101,11 @@ export async function getManuellaContent(code: string): Promise<ManuellaContent 
   return rpc("get_manuella_content", { p_code: code });
 }
 
-export async function submitManuellaQuiz(code: string, answers: Record<string, number>): Promise<QuizResult> {
-  return result(await rpc("submit_manuella_quiz", { p_code: code, p_answers: answerTexts(answers) }));
+export async function submitManuellaQuiz(code: string, answers: Record<string, number>, attemptId?: string): Promise<QuizResult> {
+  if (attemptId) validatePlayerId(attemptId);
+  return result(await rpc(attemptId ? "submit_manuella_quiz_once" : "submit_manuella_quiz", {
+    p_code: code, p_answers: answerTexts(answers), ...(attemptId ? { p_attempt_id: attemptId } : {}),
+  }));
 }
 
 export async function postManuellaMessage(code: string, body: string) {
@@ -98,14 +135,15 @@ export function subscribeToWall(callback: () => void, onStatus?: (status: WallCo
 
   {
     startPolling("connecting");
-    try {
-      channel = getClient().channel("birthday-wall").on("broadcast", { event: "changed" }, invalidate)
+    void getClient().then((instance) => {
+      if (disposed) return;
+      channel = instance.channel("birthday-wall").on("broadcast", { event: "changed" }, invalidate)
         .subscribe((state) => {
           if (disposed) return;
           if (state === "SUBSCRIBED") { clearPolling(); status("live"); invalidate(); }
           else if (["CHANNEL_ERROR", "TIMED_OUT", "CLOSED"].includes(state)) { startPolling(); invalidate(); }
         });
-    } catch { startPolling("offline"); }
+    }).catch(() => { if (!disposed) startPolling("offline"); });
   }
   document.addEventListener("visibilitychange", visibility);
   window.addEventListener("online", online);

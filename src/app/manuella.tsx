@@ -36,7 +36,7 @@ export function ManuellaScreen({ code }: { code: string }) {
           <p className="font-hand text-3xl" role="status">Chut… c'est privé</p>
         ) : (
           <>
-            <Avatar n="private" size={170} className="animate-float" alt="Manuella, le cœur qui bat" />
+            <Avatar n="private" size={170} priority className="animate-float" alt="Manuella, le cœur qui bat" />
             <p className="font-hand text-3xl text-gold">Joyeux anniversaire</p>
             <h1 className="text-5xl font-black italic">Manuella</h1>
             {!done ? (

@@ -50,4 +50,17 @@ describe("identité des participantes", () => {
     expect(loadManuellaCode()).toBe("temporary");
     get.mockRestore();
   });
+
+  it("conserve la nouvelle identité pendant la visite si le stockage est plein", () => {
+    savePlayer("Alice", true);
+    saveManuellaCode("previous-session");
+    const write = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new DOMException("Quota exceeded", "QuotaExceededError"); });
+    const friend = savePlayer("Brenda", true);
+    expect(loadPlayer()).toEqual(friend);
+    saveManuellaCode("new-session");
+    expect(loadManuellaCode()).toBe("new-session");
+    write.mockRestore();
+    savePlayer("Brenda", true);
+    saveManuellaCode(null);
+  });
 });

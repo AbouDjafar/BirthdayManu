@@ -35,6 +35,29 @@ describe("adaptateur Supabase", () => {
     await expect(unconfigured.getMessages()).rejects.toThrow("BACKEND_NOT_CONFIGURED");
   });
 
+  it("envoie le même identifiant de tentative pour récupérer un résultat sans le compter deux fois", async () => {
+    fake.rpc.mockResolvedValue({ data: { score: 80, best: 100 }, error: null });
+    const api = await import("../app/api");
+    const id = "c364be99-7adb-4c07-9dd3-53b13f33466a";
+    const attempt = "11111111-1111-4111-8111-111111111111";
+    const answers = { q1: 0, q2: 1, q3: 0, q4: 0, q5: 0 };
+    await api.submitQuiz(id, "Alice", answers, attempt);
+    await api.submitQuiz(id, "Alice", answers, attempt);
+    expect(fake.rpc.mock.calls[0]).toEqual(fake.rpc.mock.calls[1]);
+    expect(fake.rpc.mock.calls[0]?.[0]).toBe("submit_quiz_once");
+    expect(fake.rpc.mock.calls[0]?.[1]).toMatchObject({ p_attempt_id: attempt });
+    await api.submitManuellaQuiz("a".repeat(43), answers, attempt);
+    expect(fake.rpc.mock.calls.at(-1)?.[0]).toBe("submit_manuella_quiz_once");
+  });
+
+  it.each([[0, true], [503, true], [429, true], [400, false]])("classe les erreurs HTTP %i pour les réessais automatiques", async (status, expected) => {
+    fake.rpc.mockResolvedValue({ data: null, error: { message: "Test synthétique" }, status });
+    const api = await import("../app/api");
+    const failure = await api.submitQuiz("c364be99-7adb-4c07-9dd3-53b13f33466a", "Alice", { q1: 0, q2: 1, q3: 0, q4: 0, q5: 0 }).catch(error => error);
+    expect(failure instanceof Error).toBe(true);
+    expect(failure.retryable === true).toBe(expected);
+  });
+
   it("conserve le compteur serveur et les homonymes dans le classement", async () => {
     const updatedAt = "2026-12-12T12:00:00Z";
     const range = vi.fn().mockResolvedValue({
@@ -79,6 +102,7 @@ describe("adaptateur Supabase", () => {
     const refresh = vi.fn();
     const statuses = vi.fn();
     const stop = api.subscribeToWall(refresh, statuses);
+    await vi.waitFor(() => expect(fake.subscribe).toHaveBeenCalledOnce());
     const state = fake.subscribe.mock.calls[0]![0] as (value: string) => void;
     expect(statuses).toHaveBeenCalledWith("connecting");
     state("SUBSCRIBED");

@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import questions from "./questions.json";
 import { errorMessage, getMyBest, postManuellaMessage, postMessage, submitManuellaQuiz, submitQuiz } from "./api";
 import { go, useApp } from "./App";
 import { asset, MANUELLA_NAME, scoreTier } from "./storage";
 import { Avatar, Modal, confetti } from "./ui";
 import { ShareResult } from "./ShareResult";
+import { beginQuiz, isRetryableError, readQuiz, saveAnswers, saveQuizResult, type QuizScope } from "./quizState";
 
 export function Header() {
   const { manuella, leaveManuella } = useApp();
@@ -26,9 +27,11 @@ export function HomeScreen() {
   const [name, setNameInput] = useState("");
   const valid = name.trim().length >= 2 && name.trim().length <= 30;
   const firstName = manuella ? MANUELLA_NAME : player?.firstName;
+  const scope = manuella ? { owner: manuella.code, private: true } : player ? { owner: player.playerId, private: false } : null;
+  const pending = scope ? readQuiz(scope).pending : null;
   const shownBest = manuella
     ? result ? Math.max(manuella.bestScorePercent ?? 0, result.bestScorePercent) : manuella.bestScorePercent
-    : best;
+    : result ? Math.max(best ?? 0, result.bestScorePercent) : best;
 
   useEffect(() => {
     if (!player || manuella) return;
@@ -45,7 +48,7 @@ export function HomeScreen() {
       <section className="flex flex-1 flex-col items-center justify-center gap-6 py-8 text-center">
         <div className="relative">
           <div className="absolute -inset-4 -z-10 rotate-6 rounded-[2.5rem] bg-stripes opacity-90" aria-hidden />
-          <Avatar n="welcome" size={190} className="animate-float" alt="Manuella qui t'accueille les bras ouverts" />
+          <Avatar n="welcome" size={190} priority className="animate-float" alt="Manuella qui t'accueille les bras ouverts" />
           <span className="absolute -right-6 -top-3 rotate-12 rounded-full border-2 border-ink bg-gold px-3 py-1 text-sm font-extrabold text-ink shadow-sticker">12 déc.</span>
         </div>
         <div className="animate-slide">
@@ -60,7 +63,8 @@ export function HomeScreen() {
             <p className="text-lg">{manuella ? "La star est dans la place : " : "Te revoilà, "}<strong>{firstName}</strong> !</p>
             {shownBest !== null && <p className="max-w-sm text-muted-foreground">Ton meilleur score : <strong className="text-primary">{shownBest} %</strong>. {shownBest === 100 ? "Un sans faute ! Même moi, je suis impressionnée." : "Alors, on tente de battre ton record ?"}</p>}
             {error && <div className="space-y-2"><p role="alert">{error}</p><button className="underline" onClick={() => setAttempt((n) => n + 1)}>Réessayer le chargement du score</button></div>}
-            <button className="btn btn-primary w-full max-w-xs text-lg" onClick={() => go("/quiz")}>Rejouer</button>
+            <button className="btn btn-primary w-full max-w-xs text-lg" onClick={() => go("/quiz")}>{pending ? "Reprendre mon quiz" : "Rejouer"}</button>
+            {result && <a href="#/resultat" className="block text-sm font-bold underline">Retrouver mon résultat</a>}
             {!manuella && <button className="block w-full text-sm text-muted-foreground underline" onClick={() => setOpen(true)}>Ce n'est pas moi</button>}
             {manuella && <a className="block text-sm underline" href={`#/m-${encodeURIComponent(manuella.code)}`}>Relire ma lettre</a>}
           </div>
@@ -92,42 +96,76 @@ const REACTIONS = ["Je t'écoute… sans souffler !", "Voyons si tu suis mes ave
 
 export function QuizScreen() {
   const { player, manuella, setResult } = useApp();
-  const [i, setI] = useState(0);
-  const [answers, setAnswers] = useState<Record<string, number>>({});
+  const scope: QuizScope = manuella ? { owner: manuella.code, private: true } : { owner: player?.playerId ?? "", private: false };
+  const [pending, setPending] = useState(() => readQuiz(scope).pending ?? beginQuiz(scope));
+  const [answers, setAnswers] = useState(pending.answers);
+  const [i, setI] = useState(() => {
+    const next = questions.findIndex(question => pending.answers[question.id] === undefined);
+    return next < 0 ? questions.length - 1 : next;
+  });
   const [picked, setPicked] = useState<number | null>(null);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
+  const [retryableFailure, setRetryableFailure] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const retryCount = useRef(0);
+  const [slow, setSlow] = useState(false);
   const alive = useRef(true);
   const busy = useRef(false);
 
   useEffect(() => {
     alive.current = true;
-    return () => { alive.current = false; if (timer.current) clearTimeout(timer.current); };
+    return () => { alive.current = false; if (timer.current) clearTimeout(timer.current); if (retryTimer.current) clearTimeout(retryTimer.current); };
   }, []);
   useEffect(() => { if (!player && !manuella) go("/"); }, [player, manuella]);
-  if (!player && !manuella) return null;
   const q = questions[i]!;
 
-  const send = async (values: Record<string, number>) => {
+  const send = useCallback(async (values: Record<string, number>) => {
     if (busy.current) return;
-    busy.current = true; setSending(true); setError("");
+    if (retryTimer.current) clearTimeout(retryTimer.current);
+    busy.current = true; setSending(true); setSlow(false); setError("");
     try {
       const result = manuella
-        ? await submitManuellaQuiz(manuella.code, values)
-        : await submitQuiz(player!.playerId, player!.firstName, values);
+        ? await submitManuellaQuiz(manuella.code, values, pending.attemptId)
+        : await submitQuiz(player!.playerId, player!.firstName, values, pending.attemptId);
+      const confirmed = saveQuizResult(scope, result, pending.attemptId);
       if (!alive.current) return;
-      setResult(result); go("/resultat");
+      setResult(confirmed); go("/resultat");
     } catch (reason) {
-      if (alive.current) { setError(errorMessage(reason)); setSending(false); }
+      if (alive.current) {
+        setError(errorMessage(reason)); setSending(false); setRetryableFailure(isRetryableError(reason));
+        if (isRetryableError(reason)) {
+          retryTimer.current = setTimeout(() => { if (alive.current && navigator.onLine) void send(values); }, Math.min(30_000, 5_000 * 2 ** retryCount.current++));
+        }
+      }
     } finally { busy.current = false; }
-  };
+  }, [player, manuella, pending.attemptId, scope.owner, scope.private, setResult]);
+
+  useEffect(() => {
+    const values = readQuiz(scope).pending?.answers;
+    if (values && Object.keys(values).length === questions.length) void send(values);
+    const online = () => {
+      const saved = readQuiz(scope).pending;
+      if (saved?.attemptId === pending.attemptId && Object.keys(saved.answers).length === questions.length) void send(saved.answers);
+    };
+    window.addEventListener("online", online);
+    return () => window.removeEventListener("online", online);
+  }, [send]);
+  useEffect(() => {
+    if (!sending) return;
+    const slowTimer = setTimeout(() => setSlow(true), 8_000);
+    return () => clearTimeout(slowTimer);
+  }, [sending]);
+
+  if (!player && !manuella) return null;
 
   const choose = (idx: number) => {
     if (picked !== null) return;
     setPicked(idx);
     const next = { ...answers, [q.id]: idx };
     setAnswers(next);
+    saveAnswers(scope, { attemptId: pending.attemptId, answers: next });
     timer.current = setTimeout(() => {
       if (!alive.current) return;
       if (i < questions.length - 1) { setI(i + 1); setPicked(null); }
@@ -141,17 +179,24 @@ export function QuizScreen() {
       <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center opacity-60" aria-hidden>
         <Avatar n={q.avatar} size={160} className="animate-float" alt="" />
       </div>
-      <Modal label={sending || error ? "Vérification des réponses" : `Question ${i + 1} sur ${questions.length}`} showSignature={false}>
+      <Modal label={sending || error ? "Vérification des réponses" : `Question ${i + 1} sur ${questions.length}`}>
         {sending ? (
           <div className="space-y-4 py-8 text-center" role="status">
             <Avatar n="thinking" size={110} className="mx-auto animate-wiggle" alt="" />
             <p className="font-hand text-3xl">Je vérifie tes réponses…</p>
+            {slow && <p className="text-sm text-muted-foreground">La connexion prend son temps. Tes réponses sont sauvegardées ; ton résultat arrivera dès que le réseau le permettra.</p>}
           </div>
         ) : error ? (
           <div className="space-y-4 py-4 text-center">
             <h2 className="text-2xl font-bold">Tes réponses sont bien gardées</h2>
             <p role="alert">{error}</p>
+            <p className="text-sm text-muted-foreground">Tes réponses restent sauvegardées, même si tu recharges la page. Tu peux réessayer sans recommencer le quiz.</p>
             <button className="btn btn-primary w-full" onClick={() => void send(answers)}>Réessayer l’envoi</button>
+            {!retryableFailure && <button className="w-full text-sm underline" onClick={() => {
+              if (retryTimer.current) clearTimeout(retryTimer.current);
+              retryCount.current = 0;
+              setPending(beginQuiz(scope)); setAnswers({}); setI(0); setPicked(null); setError("");
+            }}>Recommencer avec une nouvelle partie</button>}
             <button className="w-full text-sm underline" onClick={() => go("/")}>Revenir à l’accueil</button>
           </div>
         ) : (
@@ -163,7 +208,7 @@ export function QuizScreen() {
               <span className="text-sm font-extrabold">{i + 1}/{questions.length}</span>
             </div>
             <div className="flex items-center gap-4">
-              <Avatar n={q.avatar} size={72} className="shrink-0 animate-pop" alt="" />
+              <Avatar n={q.avatar} size={72} priority className="shrink-0 animate-pop" alt="" />
               <p className="font-hand text-2xl text-primary">{REACTIONS[i]}</p>
             </div>
             <h2 className="text-2xl font-bold leading-tight">{q.text}</h2>
@@ -185,29 +230,15 @@ export function QuizScreen() {
 
 export function ResultScreen() {
   const { result, player, manuella } = useApp();
-  const [n, setN] = useState(0);
-  const [ready, setReady] = useState(false);
   const resultCardRef = useRef<HTMLDivElement>(null);
   const firstName = manuella ? MANUELLA_NAME : player?.firstName ?? "Une amie";
   useEffect(() => { if (!result) go("/"); }, [result]);
   useEffect(() => {
     if (!result) return;
-    setReady(false);
-    const target = result.scorePercent;
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) { setN(target); setReady(true); return; }
-    const start = performance.now();
-    let raf = 0;
-    let stopConfetti: (() => void) | undefined;
-    const step = (t: number) => {
-      const p = Math.min(1, (t - start) / 1600);
-      setN(Math.round(target * (1 - Math.pow(1 - p, 3))));
-      if (p < 1) raf = requestAnimationFrame(step);
-      else { setReady(true); stopConfetti = confetti(scoreTier(target).confetti); }
-    };
-    raf = requestAnimationFrame(step);
-    return () => { cancelAnimationFrame(raf); stopConfetti?.(); };
+    return confetti(scoreTier(result.scorePercent).confetti);
   }, [result]);
   if (!result) return null;
+  const n = result.scorePercent;
   const tier = scoreTier(result.scorePercent);
   const C = 2 * Math.PI * 70;
   return (
@@ -224,11 +255,11 @@ export function ResultScreen() {
             </svg>
             <div className="absolute inset-0 grid place-items-center"><span className="font-display text-5xl font-black italic" aria-live="polite">{n}%</span></div>
           </div>
-          <Avatar n={tier.avatar} size={84} className="mx-auto animate-pop" alt="La réaction de Manuella" />
+          <Avatar n={tier.avatar} size={84} priority className="mx-auto animate-pop" alt="La réaction de Manuella" />
           <h2 className="text-3xl font-black">{tier.title}</h2><p className="text-muted-foreground">{tier.text}</p>
           </div>
           {result.bestScorePercent > result.scorePercent && <p className="text-sm">Ton record reste <strong>{result.bestScorePercent} %</strong>.</p>}
-          <ShareResult targetRef={resultCardRef} firstName={firstName} scorePercent={result.scorePercent} ready={ready} />
+          <ShareResult targetRef={resultCardRef} firstName={firstName} scorePercent={result.scorePercent} ready />
           <button className="btn btn-gold w-full text-lg" onClick={() => go("/surprise")}>Découvrir la surprise</button>
         </div>
       </Modal>
@@ -248,7 +279,7 @@ export function SurpriseScreen() {
           <button onClick={() => setRevealed(true)} disabled={revealed}
             aria-label={revealed ? "Photo dévoilée" : "Touche pour dévoiler la photo"}
             className="relative mx-auto block aspect-[607/1080] max-h-[55dvh] w-full max-w-[15rem] overflow-hidden rounded-[1.75rem] border-[3px] border-ink bg-card shadow-sticker disabled:opacity-100">
-            <img src={asset("assets/surprise.webp")} alt="Photo surprise de Manuella" className={`h-full w-full object-contain ${revealed ? "animate-unblur" : "scale-110 blur-2xl saturate-50"}`} />
+            <img src={asset("assets/surprise.webp")} srcSet={`${asset("assets/surprise-360.webp")} 360w, ${asset("assets/surprise.webp")} 607w`} sizes="240px" width={607} height={1080} loading="lazy" decoding="async" alt="Photo surprise de Manuella" className={`h-full w-full object-contain ${revealed ? "animate-unblur" : "scale-110 blur-2xl saturate-50"}`} />
             {!revealed && <span className="absolute inset-0 grid place-items-center bg-ink/30"><span className="rounded-full border-2 border-ink bg-card px-5 py-3 font-extrabold text-ink shadow-sticker animate-wiggle">Touche pour dévoiler</span></span>}
           </button>
           {revealed && <p className="animate-slide font-hand text-3xl leading-tight text-primary">Merci d'être là pour moi. Tu as survécu à mon quiz : tu mérites bien cette petite exclusivité !</p>}

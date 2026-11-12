@@ -61,10 +61,23 @@ Seuls les portraits WebP optimisés et la photo surprise sont publiés dans
 public/assets. Les images originales fournies sont conservées localement dans
 assets-originaux, ignoré par Git. Chaque score possible (0, 20, 40, 60, 80, 100)
 a un portrait distinct ; la photo surprise est identique pour tout le monde.
+Les portraits existent en 160, 320 et 480 pixels, choisis selon la taille affichée
+et la densité de l’écran ; les images secondaires sont chargées à la demande.
+Les polices sont hébergées localement et le premier affichage utilise une police
+de secours. `scripts/optimize-assets.py` régénère les images depuis les originaux.
 
 Le favicon est un monogramme M propre à l’application. Les modals restent
 parcourables par défilement sans afficher de barre. La signature du Vizir est
 affichée en italique dans les pieds de page.
+Elle n’apparaît pas dans les modals.
+
+Le score validé s’affiche immédiatement, sans attendre l’animation ni les images.
+La carte PNG est dessinée localement avec un monogramme si le portrait tarde,
+puis actualisée quand il arrive. Réponses, UUID de tentative et résultat sont
+sauvegardés : recharger la page permet de reprendre la partie et de retrouver
+le score confirmé. Les réessais réseau réutilisent le même UUID et ne comptent
+pas comme une nouvelle participation. Une première validation nécessite une
+connexion à Supabase ; aucune réponse correcte n’est embarquée dans le navigateur.
 
 Les messages publics peuvent être masqués dans Supabase en passant hidden à
 true. Il n’existe pas de compte utilisateur : changer de navigateur ou effacer

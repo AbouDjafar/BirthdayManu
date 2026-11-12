@@ -7,7 +7,7 @@ database/test.sql et se terminent par ROLLBACK.
 
 ## Sécurité
 
-Les six tables ont RLS activé. Les visiteurs n’ont aucun accès direct aux tables ;
+Toutes les tables ont RLS activé. Les visiteurs n’ont aucun accès direct aux tables ;
 les RPC publiques ne renvoient aucun identifiant de participante, réponse correcte
 ou contenu privé. Le calcul du score et les quotas de messages restent en base.
 Les notifications Realtime diffusent seulement une invalidation vide, puis le
@@ -42,8 +42,16 @@ l’identité par UUID de navigateur reste une limite assumée.
 
 Le classement affiche une seule ligne par participante et conserve son meilleur
 score. Le nombre de participations validées est compté en base : dès la deuxième,
-l’étiquette « A rejoué plusieurs fois » apparaît sous son prénom, même si son
+l’étiquette « 2 tentatives », « 3 tentatives », etc. apparaît sur la bordure du classement, même si son
 dernier score est moins bon. Les tentatives déjà enregistrées sont prises en compte.
+
+La mise à jour `database/20261112_quiz_submission_recovery.sql` ajoute les RPC
+`submit_quiz_once` et `submit_manuella_quiz_once` ainsi qu’un reçu privé par partie.
+L’installer avant de publier le nouveau front sur une base existante. Une réponse
+réseau perdue peut être redemandée avec le même UUID sans augmenter les tentatives.
+Les accès publics au reçu sont interdits ; il contient une empreinte des paramètres,
+le résultat et aucun texte de réponse. `database/recovery-test.sql` vérifie ce
+comportement et annule ses données synthétiques avec ROLLBACK.
 
 L’application garde l’UUID dans le localStorage et n’enregistre ni adresse IP ni
 adresse MAC pour identifier les participantes. Effacer les données du site,
