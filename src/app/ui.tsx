@@ -21,7 +21,8 @@ export function Modal({
     const el = ref.current!;
     const focusables = () =>
       [...el.querySelectorAll<HTMLElement>('button,[href],input,textarea,select,[tabindex]:not([tabindex="-1"])')].filter((x) => !x.hasAttribute("disabled"));
-    (el.querySelector<HTMLElement>("[data-autofocus]") ?? focusables()[0] ?? el).focus();
+    // Keep the result/name at the top even when the first action is lower down.
+    (el.querySelector<HTMLElement>("[data-autofocus]") ?? focusables()[0] ?? el).focus({ preventScroll: true });
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape" && closeRef.current) closeRef.current();
       if (e.key === "Tab") {
