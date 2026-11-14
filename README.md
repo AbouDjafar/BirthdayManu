@@ -34,7 +34,8 @@ Avec VITE_BASE_PATH=/, le build local se consulte sur http://127.0.0.1:4173/ .
 Le workflow GitHub Actions CI exécute les vérifications sur main et les pull requests.
 Vercel importe AbouDjafar/BirthdayManu et publie automatiquement les commits de main.
 Le projet birthdaymanu utilise Vite, Node.js 22, npm ci et la sortie dist.
-Le build Vercel exécute aussi TypeScript et les tests avant publication.
+Vercel attend le succès du contrôle GitHub « BirthdayManu CI » avant la promotion
+en production. Son build exécute npm run build ; les tests restent dans GitHub Actions.
 
 Les variables publiques VITE_SUPABASE_URL, VITE_SUPABASE_PUBLISHABLE_KEY,
 VITE_BASE_PATH=/ et VITE_PUBLIC_SITE_URL=https://birthdaymanu.vercel.app/ sont
