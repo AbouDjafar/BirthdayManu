@@ -1,9 +1,11 @@
 import { scoreTier } from "./storage";
 
 /** Never derive a share link from location.href: it can contain Manuella's private code. */
-export function publicQuizUrl(origin = "https://aboudjafar.github.io", base = "/BirthdayManu/"): string {
-  const path = new URL(base, `${origin}/`).pathname.replace(/\/?$/, "/");
-  return `${origin}${path}#/`;
+export function publicQuizUrl(origin?: string, base?: string): string {
+  const site = new URL(import.meta.env.VITE_PUBLIC_SITE_URL || "https://aboudjafar.github.io/BirthdayManu/");
+  const publicOrigin = origin ?? site.origin;
+  const path = new URL(base ?? site.pathname, `${publicOrigin}/`).pathname.replace(/\/?$/, "/");
+  return `${publicOrigin}${path}#/`;
 }
 
 export function resultShareData(scorePercent: number): ShareData {
@@ -162,7 +164,8 @@ function drawResultCard(firstName: string, scorePercent: number, portrait: HTMLI
   context.fillText("À TON TOUR : TU ME CONNAIS VRAIMENT ?", middle, callToActionY);
   context.fillStyle = INK;
   context.font = "11px Arial, sans-serif";
-  context.fillText("aboudjafar.github.io/BirthdayManu/", middle, footerY);
+  const publicAddress = new URL(publicQuizUrl());
+  context.fillText(`${publicAddress.host}${publicAddress.pathname}`, middle, footerY, 350);
   return canvas;
 }
 

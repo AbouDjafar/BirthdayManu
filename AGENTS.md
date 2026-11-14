@@ -1,6 +1,7 @@
 # BirthdayManu
 
-This is the standalone GitHub Pages application in AbouDjafar/BirthdayManu.
+This is the standalone Vercel application in AbouDjafar/BirthdayManu.
+GitHub Actions runs CI and the Supabase keepalive. GitHub Pages remains a frozen fallback.
 The initial UI was imported from a separate private Lovable repository; that
 repository and its published history must remain untouched.
 

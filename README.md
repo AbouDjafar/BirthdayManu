@@ -1,7 +1,10 @@
 # BirthdayManu
 
 Application d’anniversaire de Manuella, en production :
-https://aboudjafar.github.io/BirthdayManu/
+https://birthdaymanu.vercel.app/
+
+L’ancienne adresse https://aboudjafar.github.io/BirthdayManu/ reste accessible
+comme secours, à sa dernière version publiée. Elle n’est plus redéployée.
 
 Cinq questions posées par Manuella, un score, six portraits selon le résultat,
 une photo surprise commune, un mur et un classement partagés. Les résultats
@@ -11,7 +14,7 @@ la carte peut être téléchargée et le lien copié.
 
 ## Développement local
 
-Node.js 22.12 minimum. Copier .env.example en .env.local si ce fichier n’existe
+Node.js 22, version 22.12 minimum. Copier .env.example en .env.local si ce fichier n’existe
 pas, puis renseigner l’URL et la clé publishable Supabase. Le projet local est
 déjà configuré. Il n’existe plus de mode démonstration.
 
@@ -27,10 +30,21 @@ Ouvrir http://127.0.0.1:5173/ . Les données sont réelles et partagées avec le
     npm run build
     npm run preview
 
-Le build local se consulte sur http://127.0.0.1:4173/BirthdayManu/ . Le workflow
-Publier sur GitHub Pages exécute les vérifications et déploie dist à chaque push
-sur main. Les variables GitHub VITE_SUPABASE_URL et
-VITE_SUPABASE_PUBLISHABLE_KEY sont déjà renseignées.
+Avec VITE_BASE_PATH=/, le build local se consulte sur http://127.0.0.1:4173/ .
+Le workflow GitHub Actions CI exécute les vérifications sur main et les pull requests.
+Vercel importe AbouDjafar/BirthdayManu et publie automatiquement les commits de main.
+Le projet birthdaymanu utilise Vite, Node.js 22, npm ci et la sortie dist.
+Le build Vercel exécute aussi TypeScript et les tests avant publication.
+
+Les variables publiques VITE_SUPABASE_URL, VITE_SUPABASE_PUBLISHABLE_KEY,
+VITE_BASE_PATH=/ et VITE_PUBLIC_SITE_URL=https://birthdaymanu.vercel.app/ sont
+configurées dans Vercel pour Production et Preview. Les partages, y compris ceux
+d’une preview, utilisent l’adresse publique de production. Aucun secret Supabase
+ni contenu privé n’est nécessaire au build. Le cron reste dans GitHub Actions.
+
+Le changement de domaine crée un stockage navigateur distinct. Les scores et
+messages restent partagés en base, mais les identités locales ne sont pas
+transférées automatiquement de GitHub Pages vers Vercel.
 
 ## Supabase et contenus privés
 

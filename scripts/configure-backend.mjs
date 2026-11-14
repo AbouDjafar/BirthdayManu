@@ -31,7 +31,7 @@ async function main() {
   } catch (error) {
     if (error.code !== "ENOENT") throw error;
     code = randomBytes(32).toString("base64url");
-    const siteUrl = process.env.SITE_URL || "https://aboudjafar.github.io/BirthdayManu/";
+    const siteUrl = process.env.SITE_URL || process.env.VITE_PUBLIC_SITE_URL || "https://birthdaymanu.vercel.app/";
     const site = new URL(siteUrl);
     if (site.protocol !== "https:") throw new Error("SITE_URL doit utiliser HTTPS.");
     site.hash = `/m-${code}`;

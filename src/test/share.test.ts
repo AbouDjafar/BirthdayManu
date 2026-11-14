@@ -5,6 +5,7 @@ const image = new File(["png"], "resultat.png", { type: "image/png" });
 
 beforeEach(() => {
   vi.resetAllMocks();
+  vi.stubEnv("VITE_PUBLIC_SITE_URL", "");
   vi.stubGlobal("navigator", { share: undefined, canShare: undefined, clipboard: undefined });
   Object.defineProperty(document, "fonts", { configurable: true, value: { ready: Promise.resolve() } });
   window.history.replaceState(null, "", "#/m-code-tres-prive");
@@ -13,10 +14,16 @@ beforeEach(() => {
 afterEach(() => {
   document.body.replaceChildren();
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
   vi.restoreAllMocks();
 });
 
 describe("lien public et partage natif", () => {
+  it("utilise le domaine Vercel configuré sans transmettre les paramètres ou le lien privé", () => {
+    vi.stubEnv("VITE_PUBLIC_SITE_URL", "https://birthdaymanu.vercel.app/?token=secret#/m-secret");
+    expect(publicQuizUrl()).toBe("https://birthdaymanu.vercel.app/#/");
+    expect(resultShareData(60).url).toBe("https://birthdaymanu.vercel.app/#/");
+  });
   it("partage toujours l’accueil, sans le hash privé ou la query de la page", () => {
     expect(publicQuizUrl("https://aboudjafar.github.io", "/BirthdayManu/")).toBe("https://aboudjafar.github.io/BirthdayManu/#/");
     expect(publicQuizUrl("https://exemple.test", "/BirthdayManu?code=secret#/m-secret")).toBe("https://exemple.test/BirthdayManu/#/");
@@ -122,6 +129,14 @@ describe("carte locale indépendante des ressources réseau", () => {
     expect(fillText).toHaveBeenCalledWith("0 %", expect.any(Number), expect.any(Number), 132);
     expect(drawImage).not.toHaveBeenCalled();
     expect(exportPng).toHaveBeenCalledWith("image/png");
+  });
+
+  it("imprime la nouvelle adresse publique sur la carte sans le code privé", async () => {
+    vi.stubEnv("VITE_PUBLIC_SITE_URL", "https://birthdaymanu.vercel.app/?token=secret#/m-secret");
+    await createResultImage(document.createElement("div"), "Alice", 60);
+    expect(fillText).toHaveBeenCalledWith("birthdaymanu.vercel.app/", expect.any(Number), expect.any(Number), 350);
+    expect(JSON.stringify(fillText.mock.calls)).not.toContain("m-secret");
+    expect(JSON.stringify(fillText.mock.calls)).not.toContain("token=secret");
   });
 
   it.each([
