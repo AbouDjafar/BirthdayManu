@@ -14,6 +14,28 @@ describe("éléments partagés", () => {
     expect(within(screen.getByRole("contentinfo")).getByText(SIGNATURE)).toBeInTheDocument();
   });
 
+  it("recalle immédiatement le bottom sheet quand le clavier réduit la fenêtre visible", () => {
+    const viewport = Object.assign(new EventTarget(), {
+      height: 760,
+      width: 390,
+      offsetLeft: 0,
+      offsetTop: 0,
+    }) as VisualViewport;
+    Object.defineProperty(window, "visualViewport", { configurable: true, value: viewport });
+
+    render(<Modal label="Ton prénom"><input data-autofocus aria-label="Prénom" /></Modal>);
+    const sheet = screen.getByRole("dialog", { name: "Ton prénom" });
+    const container = sheet.parentElement!;
+    expect(container.style.height).toBe("760px");
+
+    Object.assign(viewport, { height: 390, offsetTop: 8 });
+    viewport.dispatchEvent(new Event("resize"));
+
+    expect(container.style.height).toBe("390px");
+    expect(container.style.top).toBe("8px");
+    expect(container.style.getPropertyValue("--modal-viewport-height")).toBe("390px");
+  });
+
   it("donne la priorité aux portraits visibles et diffère les autres", () => {
     const view = render(<Avatar n="welcome" size={190} priority />);
     expect(screen.getByRole("img")).toHaveAttribute("loading", "eager");

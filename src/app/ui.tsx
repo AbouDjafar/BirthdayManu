@@ -14,15 +14,34 @@ export function Modal({
   children, onClose, label, tone = "light",
 }: { children: ReactNode; onClose?: () => void; label: string; tone?: "light" | "night" }) {
   const ref = useRef<HTMLDivElement>(null);
+  const viewportRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
   useEffect(() => {
     const prev = document.activeElement as HTMLElement | null;
     const el = ref.current!;
+    const viewportEl = viewportRef.current!;
     const focusables = () =>
       [...el.querySelectorAll<HTMLElement>('button,[href],input,textarea,select,[tabindex]:not([tabindex="-1"])')].filter((x) => !x.hasAttribute("disabled"));
     // Keep the result/name at the top even when the first action is lower down.
     (el.querySelector<HTMLElement>("[data-autofocus]") ?? focusables()[0] ?? el).focus({ preventScroll: true });
+    // On mobile, the on-screen keyboard can shrink the visual viewport while
+    // leaving the layout viewport unchanged. Anchor the sheet to the visible
+    // rectangle as soon as the keyboard opens, not after the user types.
+    const visualViewport = window.visualViewport;
+    const syncVisualViewport = () => {
+      if (!visualViewport) return;
+      viewportEl.style.top = `${visualViewport.offsetTop}px`;
+      viewportEl.style.left = `${visualViewport.offsetLeft}px`;
+      viewportEl.style.width = `${visualViewport.width}px`;
+      viewportEl.style.height = `${visualViewport.height}px`;
+      viewportEl.style.setProperty("--modal-viewport-height", `${visualViewport.height}px`);
+    };
+    syncVisualViewport();
+    visualViewport?.addEventListener("resize", syncVisualViewport);
+    visualViewport?.addEventListener("scroll", syncVisualViewport);
+    window.addEventListener("resize", syncVisualViewport);
+    window.addEventListener("scroll", syncVisualViewport);
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape" && closeRef.current) closeRef.current();
       if (e.key === "Tab") {
@@ -35,15 +54,24 @@ export function Modal({
     };
     document.addEventListener("keydown", onKey);
     document.body.style.overflow = "hidden";
-    return () => { document.removeEventListener("keydown", onKey); document.body.style.overflow = ""; prev?.focus?.(); };
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      visualViewport?.removeEventListener("resize", syncVisualViewport);
+      visualViewport?.removeEventListener("scroll", syncVisualViewport);
+      window.removeEventListener("resize", syncVisualViewport);
+      window.removeEventListener("scroll", syncVisualViewport);
+      document.body.style.overflow = "";
+      prev?.focus?.();
+    };
   }, []);
 
   return (
-    <div className="fixed inset-0 z-40 flex items-end justify-center sm:items-center">
+    <div ref={viewportRef} className="fixed inset-0 z-40 flex items-end justify-center sm:items-center">
       <div className="absolute inset-0 animate-fade bg-ink/40 backdrop-blur-md" onClick={onClose} aria-hidden />
       <div
         ref={ref} role="dialog" aria-modal="true" aria-label={label} tabIndex={-1}
-        className={`modal-scroll relative max-h-[92dvh] w-full animate-sheet overflow-y-auto rounded-t-[2rem] border-[2.5px] border-ink p-6 pb-8 shadow-soft sm:max-w-md sm:rounded-[2rem] ${tone === "night" ? "bg-night text-ink-foreground" : "bg-card"}`}
+        className={`modal-scroll relative w-full animate-sheet overflow-y-auto rounded-t-[2rem] border-[2.5px] border-ink p-6 pb-8 shadow-soft sm:max-w-md sm:rounded-[2rem] ${tone === "night" ? "bg-night text-ink-foreground" : "bg-card"}`}
+        style={{ maxHeight: "min(92dvh, calc(var(--modal-viewport-height, 100dvh) - 1rem))" }}
       >
         <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-border sm:hidden" aria-hidden />
         {onClose && (
